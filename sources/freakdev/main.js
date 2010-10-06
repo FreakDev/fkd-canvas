@@ -48,6 +48,7 @@
 					
 					parent = parent[names[i]];
 				}
+				return parent[names[i]];
 			},
 	        extend: function(parentClass) {
 				var fn, fnConstructor = fn = function () { 
@@ -67,7 +68,7 @@
 					fn.apply(scope, arguments);
 				};
 			},
-			call_fn_array: function (fn, arguments) {
+			call_fn_array: function (fn, args) {
 				if ('function' == typeof fn) {
 					fn.apply(fn, arguments);
 				} else {

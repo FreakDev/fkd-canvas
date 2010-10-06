@@ -7,6 +7,7 @@ include ('builder.php');
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title></title>
 <script type="text/javascript" src="freakdev.js"></script>
+<!--<script type="text/javascript" src="freakdev-build.js"></script>-->
 <script type="text/javascript">
 
 var waffleImg, marseilleImg;
@@ -15,8 +16,6 @@ window.onload = function () {
 	var bgCanvas = new freakdev.canvas.Canvas(); 
     
     bgCanvas.resize(900, 600);
-
-    var start = new Date().getTime();
   
     marseilleImg = new freakdev.canvas.scene.Image('marseille');
     bgCanvas.scene.push(marseilleImg);
@@ -26,10 +25,6 @@ window.onload = function () {
     bgCanvas.scene.push(waffleImg);
 
     bgCanvas.runAutoRender();
-    
-    var end = new Date().getTime();
-    freakdev.utils.Debug.print('done in ' + (end - start) + ' milliseconds');
-    	 
 };
 </script>
 <style>

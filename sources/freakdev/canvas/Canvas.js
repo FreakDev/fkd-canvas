@@ -95,12 +95,14 @@ freakdev.canvas.Canvas.prototype.render = function ()
 	}
 	
 	if (!this.insertedToDom) {
+		this.insertedToDom = true;
 		var pNode;
-		if (arguments.length) {
+		if (arguments.length)
 			pNode = this.Dom.get(arguments[0]);
-		} else {
+			
+		if (!pNode)
 			pNode = this.Dom.getByTagName('body').item(0);
-		}
+
 		pNode.appendChild(this.getCanvas());
 	}
 
