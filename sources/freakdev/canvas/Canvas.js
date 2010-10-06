@@ -34,6 +34,9 @@ freakdev.canvas.Canvas.prototype.init = function (domCanvasId)
 	this.canvasNode;
 	this.getCanvas(undefined != domCanvasId ? domCanvasId : false);
 
+	this._autoRenderTimer;
+	this._isRendering;
+	
 	this.scene;	
 	this._initScene();
 	this._initEvent();
@@ -81,11 +84,15 @@ freakdev.canvas.Canvas.prototype.resize = function (width, height)
 freakdev.canvas.Canvas.prototype.query = function (queryString)
 {
 	
-}
+};
 
 freakdev.canvas.Canvas.prototype.render = function ()
 {
-	this.scene.renderTo(this.getContext());
+	this._isRendering = true;
+	
+	if (this.scene.isRenderNeeded()) {
+		this.scene.renderTo(this.getContext());
+	}
 	
 	if (!this.insertedToDom) {
 		var pNode;
@@ -95,5 +102,23 @@ freakdev.canvas.Canvas.prototype.render = function ()
 			pNode = this.Dom.getByTagName('body').item(0);
 		}
 		pNode.appendChild(this.getCanvas());
-	}	
+	}
+
+	this._isRendering = false;
 };
+
+freakdev.canvas.Canvas.prototype.runAutoRender = function (fps)
+{
+	if (undefined == fps)
+		fps = 40;
+	
+	var interval = parseInt(1000 / fps);
+	
+	this._autoRenderTimer = setInterval(Fkd.createDelegate(this.render, this), interval);
+};
+
+freakdev.canvas.Canvas.prototype.stopAutoRender = function () 
+{
+	clearInterval(this._autoRenderTimer);
+};
+

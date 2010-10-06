@@ -18,6 +18,9 @@ freakdev.canvas.scene.Object.prototype.init = function(x, y, width, height)
 	this.opacity = 1;
 	//this.effectPool = new freakdev.canvas.image.EffectPool();
 	
+	this._container;
+	this._needToRender = true;
+	
 	this._eventListeners = [];
 };
 
@@ -33,15 +36,46 @@ freakdev.canvas.scene.Object.prototype.getId = function ()
 
 freakdev.canvas.scene.Object.prototype.renderTo = function (target) 
 {
-	this.render();
-	
 	if (this.isVisible()) {
-		target.drawImage(this.getImgTag(), this.x, this.y, this.getWidth(), this.getHeight());
+		if (this._needToRender)
+			this.render();
+		
+		if (this.opacity < 1) {
+			target.save();
+			target.globalAlpha = this.opacity;
+		}		
+		
+		this._drawToTarget(target);
+		
+		if (this.opacity < 1)
+			target.restore();		
 	}
 };
 
+freakdev.canvas.scene.Object.prototype._drawToTarget = function (target)
+{
+	target.drawImage(this.getImgTag(), this.x, this.y, this.getWidth(), this.getHeight());	
+}
+
+freakdev.canvas.scene.Object.prototype.needToRender = function ()
+{
+	this._needToRender = true;
+	this._container.needToRender();
+};
+
+freakdev.canvas.scene.Object.prototype.isRenderNeeded = function ()
+{
+	return this._needToRender;
+};
+
+freakdev.canvas.scene.Object.prototype.setContainer = function (obj)
+{
+	this._container = obj;
+}
+
 freakdev.canvas.scene.Object.prototype.render = function () 
 {
+	this._needToRender = false;
 	//this.effectPool.apply(this);
 };
 

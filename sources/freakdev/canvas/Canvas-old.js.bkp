@@ -1,0 +1,249 @@
+Fkd.createNamespace('freakdev.canvas');
+
+freakdev.canvas.Canvas = function ()
+{	
+	this.init(arguments);
+};
+
+freakdev.canvas.Canvas.CLICK = 'click';
+freakdev.canvas.Canvas.DBLCLICK = 'dblclick';
+
+freakdev.canvas.Canvas.MOUSE_DOWN = 'mousedown';
+freakdev.canvas.Canvas.MOUSE_MOVE = 'mousemove';
+freakdev.canvas.Canvas.MOUSE_OUT = 'mouseout';
+freakdev.canvas.Canvas.MOUSE_OVER = 'mouseover';
+freakdev.canvas.Canvas.MOUSE_UP = 'mouseup';
+
+freakdev.canvas.Canvas.KEY_DOWN = 'keydown';
+freakdev.canvas.Canvas.KEY_PRESS = 'keypress';
+freakdev.canvas.Canvas.KEY_UP = 'keyup';
+
+freakdev.canvas.Canvas.EVENTS = ['click', 'dblclick', 'mousedown', 
+                                 'mousemove', 'mouseout', 'mouseover', 
+                                 'mouseup', 'keydown', 'keypress', 'keyup'];
+
+freakdev.canvas.Canvas.prototype.init = function (args)
+{
+	this.canvasNode;
+	this.insertedToDom = false;
+	this.scene;
+		
+	this.effectsDictionnary = {
+		'hue' 			: this.updateHue,
+		'saturation'	: this.updateSaturation,
+		'luminosity' 	: this.updateLuminosity,
+		'recover'		: this.recoverHighLights,
+		'filllight'		: this.fillLight
+	};
+	
+	this.effectsStack = new Array();
+	
+	// shorthands
+	this.Dom = freakdev.utils.Dom;
+	this.Debug = freakdev.utils.Debug;	
+	
+	this.getCanvas(args.length ? args[0] : false);
+
+	this._initScene();
+	this._initEvent();
+};
+
+freakdev.canvas.Canvas.prototype.getCanvas = function (idAttr)
+{
+	if (!this.canvasNode) {
+		if (idAttr) {
+			this.canvasNode = this.Dom.get(idAttr);
+			this.insertedToDom = true;
+		} else {
+			this.canvasNode = document.createElement('canvas');
+		}
+	}
+	return this.canvasNode;
+};
+
+freakdev.canvas.Canvas.prototype._initScene = function ()
+{
+	this.scene = new freakdev.canvas.scene.Scene(this.getCanvas());	
+};
+
+freakdev.canvas.Canvas.prototype.getContext = function ()
+{
+	return this.getCanvas().getContext('2d');
+};
+
+freakdev.canvas.Canvas.prototype.loadImage = function (idAttr, resize)
+{
+	var img = this.Dom.get(idAttr);
+	
+	if (undefined == resize)
+		this.resize(img.width, img.height);
+	
+	this.getContext().drawImage(img, 0, 0, img.width, img.height);
+};
+
+freakdev.canvas.Canvas.prototype.resize = function (width, height)
+{
+	this.getCanvas().width = width;
+	this.getCanvas().height = height;
+	
+	this._initScene();
+};
+
+freakdev.canvas.Canvas.prototype.updateHue = function (px, params)
+{
+	px.toHSL();
+	if (undefined != params.value)
+		px.hue = params.value;
+	px.toRGB();
+	
+	return px;
+};
+
+freakdev.canvas.Canvas.prototype.updateSaturation = function (px, params)
+{
+	px.toHSL();
+	if (undefined != params.value)
+		px.saturation = params.value;
+	px.toRGB();
+	
+	return px;
+};
+
+freakdev.canvas.Canvas.prototype.updateLuminosity = function (px, params)
+{
+	px.toHSL();
+	if (undefined != params.value)
+		px.luminosity = params.value;
+	px.toRGB();
+	
+	return px;
+};
+
+freakdev.canvas.Canvas.prototype.recoverHighLights = function (px, params)
+{
+	var gain = params.gain || 7; // percent
+	var limit = params.limit || 0.95;
+	
+	px.toHSL();
+	
+	if (px.luminosity > limit)
+		px.luminosity -= px.luminosity * (gain / 100);
+	
+	px.toRGB();
+	
+	return px;
+};
+
+
+freakdev.canvas.Canvas.prototype.fillLight = function (px, params)
+{
+	var gain = params.gain || 20; // percent
+	var limit = params.limit || 0.1;
+	
+	px.toHSL();
+	
+	if (px.luminosity < limit)
+		px.luminosity += px.luminosity * (gain / 100);
+	
+	px.toRGB();
+	
+	return px;
+};
+
+freakdev.canvas.Canvas.prototype.applyFilters = function ()
+{
+	var imgData = this.getContext().getImageData(0, 0, this.canvasNode.width, this.canvasNode.height);
+	var data = imgData.data;
+	
+	for (var i = 0, len = data.length; i < len; i++) {
+		var indexes = [i, ++i, ++i,++i];
+		var px = new freakdev.canvas.image.Pixel(data[indexes[0]], data[indexes[1]], data[indexes[2]]);
+		
+		this.updatePixel(px);
+		
+		data[indexes[0]] = px.red;
+		data[indexes[1]] = px.green;
+		data[indexes[2]] = px.blue;
+	}
+	
+	this.getContext().putImageData(imgData, 0, 0, 0, 0, imgData.width, imgData.height);
+};
+
+freakdev.canvas.Canvas.prototype.updatePixel = function (px)
+{
+	if ('object' != typeof px) {
+		var index = px;
+		var imgData = this.getContext().getImageData(0, 0, this.canvasNode.width, this.canvasNode.height);
+		var data = imgData.data;
+		
+		var indexes = [index, ++index, ++index,++index];
+		px = new freakdev.canvas.image.Pixel(data[indexes[0]], data[indexes[1]], data[indexes[2]]);
+	}
+		
+	for (var j = 0, len2 = this.effectsStack.length; j < len2; j++) {
+		px = (this.effectsDictionnary[this.effectsStack[j].effect])(px, this.effectsStack[j].params);
+	}
+	
+	return px;
+};
+
+freakdev.canvas.Canvas.prototype.addEffect = function (effect, params)
+{
+	if (undefined == this.effectsDictionnary[effect])
+		throw Error('Effect \'' + effect + '\' doesn\'t exist');
+	
+	this.effectsStack.push({
+		'effect' : effect,
+		'params' : params
+	});
+};
+
+freakdev.canvas.Canvas.prototype.addShape = function ()
+{
+	var s = new freakdev.canvas.scene.Shape(100, 100, 5, 5);
+	
+	this.scene.push(s);
+};
+
+freakdev.canvas.Canvas.prototype.render = function ()
+{
+	this.scene.renderTo(this.getContext());
+	
+	if (!this.insertedToDom) {
+		var pNode;
+		if (arguments.length) {
+			pNode = this.Dom.get(arguments[0]);
+		} else {
+			pNode = this.Dom.getByTagName('body').item(0);
+		}
+		pNode.appendChild(this.getCanvas());
+	}	
+};
+
+freakdev.canvas.Canvas.prototype._initEvent = function ()
+{
+	for (var i in freakdev.canvas.Canvas.EVENTS) {
+		this.getCanvas().addEventListener(freakdev.canvas.Canvas.EVENTS[i], Fkd.createDelegate(this.scene.handleEvent, this.scene), true);
+	}
+};
+
+//freakdev.canvas.Canvas.prototype.render = function ()
+//{
+//	var start = new Date().getTime();
+//	
+//	if (this.effectsStack.length)
+//		this.applyFilters();
+//	
+//	var end = new Date().getTime();
+//	this.Debug.print('done in ' + (end - start) + ' milliseconds');
+//	
+//	if (!this.insertedToDom) {
+//		var pNode;
+//		if (arguments.length) {
+//			pNode = this.Dom.get(arguments[0]);
+//		} else {
+//			pNode = this.Dom.getByTagName('body').item(0);
+//		}
+//		pNode.appendChild(this.getCanvas());
+//	}
+//};
