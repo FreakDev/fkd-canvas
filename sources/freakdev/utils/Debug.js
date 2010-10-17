@@ -25,3 +25,5 @@ freakdev.utils.Debug = (function () {
 		}
 	};
 })();
+
+var debug = freakdev.utils.Debug.print;

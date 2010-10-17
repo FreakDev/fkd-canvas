@@ -35,17 +35,18 @@ freakdev.thread.Broker.prototype.setMaxSimultaneous = function (value)
 	this.maxSimul = parseInt(value);
 };
 
-freakdev.thread.Broker.prototype.startTimer = function ()
-{
-	this.timerOn = true;
-	this.timerID = setInterval(Fkd.createDelegate(this.processStack, this), 1);
-};
-
-freakdev.thread.Broker.prototype.stopTimer = function ()
-{
-	this.timerOn = false;
-	clearInterval(this.timerID);
-};
+//freakdev.thread.Broker.prototype.startTimer = function ()
+//{
+//	this.timerOn = true;
+//	
+//	this.timerID = setInterval(Fkd.createDelegate(this.processStack, this), 15);
+//};
+//
+//freakdev.thread.Broker.prototype.stopTimer = function ()
+//{
+//	this.timerOn = false;
+//	clearInterval(this.timerID);
+//};
 
 freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, groupID)
 {
@@ -72,8 +73,17 @@ freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, g
 	else
 		this.threads[groupID].push(t);
 	
-	if (!this.timerOn)
-		this.startTimer();
+//	if (!this.timerOn)
+//		this.startTimer();
+	
+	var script = document.createElement("script");
+	script.src  = "data:,";
+	script.onload = Fkd.createDelegate(function () {
+		document.body.removeChild(script);
+		this.processStack();
+	}, this);
+	document.getElementsByTagName('body').item(0).appendChild(script);
+	
 };
 
 freakdev.thread.Broker.prototype.processStack = function ()
@@ -83,10 +93,10 @@ freakdev.thread.Broker.prototype.processStack = function ()
 	
 	this.nbStarted++;
 	
-	if (!this.threadStack[0]) {
-		this.stopTimer();
-		return;
-	}
+//	if (!this.threadStack[0]) {
+//		this.stopTimer();
+//		return;
+//	}
 	
 	var groupID = this.threadStack[0];	
 	
@@ -97,29 +107,31 @@ freakdev.thread.Broker.prototype.processStack = function ()
 	
 	var r = t.run();
 	
-	if (t.callback.scope && t.callback.fn) {
-		scope = t.callback.scope;
-		fn = t.callback.fn;
-	} else {
-		scope = window;
-		fn = t.callback;
-	}	
-	
+	if (t.callback) {
+		if (t.callback.scope && t.callback.fn) {
+			scope = t.callback.scope;
+			fn = t.callback.fn;
+		} else {
+			scope = window;
+			fn = t.callback;
+		}		
+	}
+		
 	this.nbStarted--;
 	
 	if (0 == this.threads[groupID].length) {
-		this.threads[groupID] = null;
+		delete(this.threads[groupID]);
 		this.threadStack.splice(0, 1);
 	}
 	
-	if (0 == this.threadStack.length) {
-		this.stopTimer();
-	}
+//	if (0 == this.threadStack.length) {
+//		this.stopTimer();
+//	}
 	
 	fn.call(scope, r);
 };
 
-freakdev.thread.Broker.prototype.isFinnished = function (groupID) 
+freakdev.thread.Broker.prototype.isFinished = function (groupID)
 {
 	var r = (this.threadStack.indexOf(groupID.toString()) == -1 ? true : false);
 	return r;

@@ -2,28 +2,47 @@ Fkd.createNamespace('freakdev.canvas.scene');
 
 freakdev.canvas.scene.Scene = Fkd.extend(freakdev.canvas.scene.DisplayGroup);
 
+/**
+ * constructor
+ * @param {freakdev.canvas.Canvas} target - Canvas object in which the scene will be rendered 
+ */
 freakdev.canvas.scene.Scene.prototype.init = function (target)
 {	
 	this.targetCanvas = target;
 	
-	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, this.targetCanvas.width, this.targetCanvas.height);	
+	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, this.targetCanvas.getCanvas().width, this.targetCanvas.getCanvas().height);	
 };
 
-freakdev.canvas.scene.Scene.prototype.render = function () 
+/**
+ * in charge of rendering the scene
+ * @param {freakdev.canvas.Canvas} [optional] canvas - set the target 
+ * @returns void
+ */
+freakdev.canvas.scene.Scene.prototype.renderTo = function (canvas) 
 {
-	//freakdev.canvas.scene.Scene.superClass.renderTo(this.targetCanvas.getContext('2d'));
-};
-
-freakdev.canvas.scene.Scene.prototype.renderTo = function () 
-{
-
-	ctx = this.targetCanvas.getContext('2d');
+	if (undefined != canvas)
+		this.targetCanvas = canvas;
 	
-	ctx.clearRect(0, 0, this.targetCanvas.width, this.targetCanvas.height);
+	ctx = this.targetCanvas.getContext();
+	
+	ctx.clearRect(0, 0, this.targetCanvas.getCanvas().width, this.targetCanvas.getCanvas().height);
 	
 	for (var i=0,len=this._atlas.length; i<len; i++) {
 		var o = this._atlas[i];
-		o.renderTo(ctx);
+		o.renderTo(this.targetCanvas);
 	}
+};
 
+freakdev.canvas.scene.Scene.prototype.setVisible = function (status) { throw new Error('Can\'t change visibility status of the scene'); };
+
+/**
+ * resize the scene, this method is automatically called by the canvas 
+ * @param {Integer} width
+ * @param {Integer} height
+ * @returns void
+ */
+freakdev.canvas.scene.Scene.prototype.resize = function (width, height)
+{
+	this.setWidth(width);
+	this.setHeight(height);
 };

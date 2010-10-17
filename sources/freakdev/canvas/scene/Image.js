@@ -1,7 +1,12 @@
 Fkd.createNamespace('freakdev.canvas.scene');
 
 freakdev.canvas.scene.Image = Fkd.extend(freakdev.canvas.scene.Object);
-
+/**
+ * constructor
+ * @param {String} domId - id attribute of an image tag
+ * @param {Integer} x 
+ * @param {Integer} y
+ */
 freakdev.canvas.scene.Image.prototype.init = function(domId, x, y)
 {
 	x = undefined == x ? 0 : x;

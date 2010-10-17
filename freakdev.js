@@ -3,65 +3,92 @@
 	
 
 
-	window.Fkd = (function () {	
-		return {
-			createNamespace: function (ns) {
-				var names = ns.split('.');
-				var parent = window;
-				for (var i=0, len=names.length; i<len; i++) {
-					if ('object' != typeof(parent[names[i]]) ) {
-						parent[names[i]] = {};
-					}
-					
-					parent = parent[names[i]];
+	window.Fkd = {
+		/**
+		 * creates recursively nested object to define a namespace
+		 * @param {String} ns - the desired namespace
+		 * @returns {Object} - the deepest level of ns namespace 
+		 */
+		createNamespace: function (ns) {
+			var names = ns.split('.');
+			var parent = window;
+			for (var i=0, len=names.length; i<len; i++) {
+				if ('object' != typeof(parent[names[i]]) ) {
+					parent[names[i]] = {};
 				}
-				return parent[names[i]];
-			},
-	        extend: function(parentClass) {
-				var fn, fnConstructor = fn = function () { 
-					parentClass.apply(this, arguments);
-				};
-				fn.prototype = new parentClass;
+				
+				parent = parent[names[i]];
+			}
+			return parent[names[i]];
+		},
+		/**
+		 * create a class that extends the given one
+		 * @param {Function} parentClass the parent class to extend
+		 * @returns {Function} - the child class
+		 */
+        extend: function(parentClass) {
+			var fn, fnConstructor = fn = function () { 
+				parentClass.apply(this, arguments);
+			};
+			fn.prototype = new parentClass;
 
-				fn.prototype.constructor = fnConstructor;
-				
-				fn.superClass = parentClass.prototype;
-				fn.prototype.superClass = function () { return parentClass.prototype; };
-				
-				return fn;
-			},
-			createDelegate: function (fn, scope) {
-				return function () {
-					fn.apply(scope, arguments);
-				};
-			},
-			call_fn_array: function (fn, args) {
-				if ('function' == typeof fn) {
-					fn.apply(fn, arguments);
-				} else {
-					if (fn.scope && fn.fn) {
-						fn.apply(scope, arguments)
-					}
+			fn.prototype.constructor = fnConstructor;
+			
+			fn.superClass = parentClass.prototype;
+			fn.prototype.superClass = function () { return parentClass.prototype; };
+			
+			return fn;
+		},
+		/**
+		 * creates a delegate of the given function with the desired scope
+		 * @param {Function} fn
+		 * @param {Object} scope
+		 * @returns {Function}
+		 */
+		createDelegate: function (fn, scope) {
+			return function () {
+				fn.apply(scope, arguments);
+			};
+		},
+		call_fn_array: function (fn, args) {
+			if ('function' == typeof fn) {
+				fn.apply(fn, args);
+			} else {
+				if (fn.scope && fn.fn) {
+					fn.apply(scope, args);
 				}
 			}
-		};
-	})();
+		}
+	};
 	
 	
 
 Fkd.createNamespace('freakdev.utils');
 
-freakdev.utils.Dom = (function () 
-{	
-	return {
-		get: function (idAttr) {
-			return document.getElementById(idAttr);
-		},
-		getByTagName: function (name) {
-			return document.getElementsByTagName(name);
-		}
-	};
-})();
+freakdev.utils.Dom = {
+	/**
+	 * get a DOMObject matching the given id attribute 
+	 * @param {String} idAttr
+	 * @returns {DOMObject} object
+	 */
+	get: function (idAttr) {
+		return document.getElementById(idAttr);
+	},
+	/**
+	 * get a list of DOMNode matching the given name attribute
+	 * @param {String} name
+	 * @returns {NodeList} object
+	 */
+	getByTagName: function (name) {
+		return document.getElementsByTagName(name);
+	}
+};
+
+/**
+ * a shorthand for freakdev.utils.Dom. Is visible only insode the library
+ * @type freakdev.utils.Dom
+ */
+var DomHelper = freakdev.utils.Dom; 
 
 Fkd.createNamespace('freakdev.utils');
 
@@ -90,6 +117,8 @@ freakdev.utils.Debug = (function () {
 		}
 	};
 })();
+
+var debug = freakdev.utils.Debug.print;
 
 /*
 Copyright (c) 2008, Robert Kieffer
@@ -142,6 +171,121 @@ freakdev.utils.Uuid = (function() {
     return uuid.join('');
   };
 })();
+
+// shorthand
+var generateUuid = freakdev.utils.Uuid;
+
+Fkd.createNamespace('freakdev.event');
+
+freakdev.event.CLICK = 'click';
+freakdev.eventDBLCLICK = 'dblclick';
+
+freakdev.event.MOUSE_DOWN = 'mousedown';
+freakdev.event.MOUSE_MOVE = 'mousemove';
+freakdev.event.MOUSE_OUT = 'mouseout';
+freakdev.event.MOUSE_OVER = 'mouseover';
+freakdev.event.MOUSE_UP = 'mouseup';
+freakdev.event.MOUSE_WHEEL = 'mousewheel';
+
+freakdev.event.KEY_DOWN = 'keydown';
+freakdev.event.KEY_PRESS = 'keypress';
+freakdev.event.KEY_UP = 'keyup';
+
+freakdev.event.DRAG = 'drag';
+freakdev.event.DRAG_END = 'dragend';
+freakdev.event.DRAG_ENTER = 'dragenter';
+freakdev.event.DRAG_LEAVE = 'dragleave';
+freakdev.event.DRAG_OVER = 'dragover';
+freakdev.event.DRAG_START = 'dragstart';
+freakdev.event.DROP = 'drop';
+
+freakdev.event.DOM_EVENTS = ['mousedown', 'mousemove', 'mouseout', 'mouseover', 
+                             'mouseup', 'mousewheel', 'keydown', 'keypress', 
+                             'keyup', 'drag', 'dragend', 'dragenter', 'dragleave', 
+                             'dragover','dragstart', 'drop'];
+
+freakdev.event.EventManager = function () 
+{
+	this.init.apply(this, arguments);
+};
+
+freakdev.event.EventManager.prototype.init = function ()
+{
+	this._eventListeners = [];
+};
+
+freakdev.event.EventManager.instance = null;
+
+freakdev.event.EventManager.getInstance = function ()
+{
+	if (null == freakdev.event.EventManager.instance) {
+		freakdev.event.EventManager.instance = new freakdev.event.EventManager();
+	}
+	
+	return freakdev.event.EventManager.instance;
+};
+
+freakdev.event.EventManager.prototype.addEventListeners = function (er)
+{
+	
+};
+
+freakdev.event.EventManager.prototype.domEventFactory = function (domEvent, canvas)
+{
+	if ('mouse' == domEvent.type.substr(0, 5)) {
+		return new freakdev.event.MouseEvent(domEvent, canvas);
+	} else if ('key' == domEvent.type.subtr(0, 3)) {
+		//return new freakdev.event.KeyEvent(domEvent, canvas);
+	} else if ('drop' == domEvent.type.subtr(0, 4) || 'drop' == domEvent.type.subtr(0, 4)) {
+		//return new freakdev.event.DragEvent(domEvent, canvas);
+	}
+};
+
+freakdev.event.EventManager.prototype.fireEvent = function (event)
+{
+	for (var i, er; er = this.eventReceiver[i]; i++) {
+		if (!er.propagateEvent(event))
+			return false;
+	}
+	
+	return true;	
+};
+
+
+Fkd.createNamespace('freakdev.event');
+
+freakdev.event.Event = function ()
+{
+	this.init.apply(this, arguments);
+};
+
+freakdev.event.Event.prototype.init = function ()
+{
+	
+};
+
+Fkd.createNamespace('freakdev.event');
+
+freakdev.event.MouseEvent = Fkd.extend(freakdev.event.Event);
+
+freakdev.event.MouseEvent.LEFT_BUTTON;
+freakdev.event.MouseEvent.RIGHT_BUTTON;
+
+freakdev.event.MouseEvent.prototype.init = function (domMouseEvent, canvas)
+{
+	this.canvas = canvas || domMouseEvent.target;
+	this.type = domMouseEvent.type;
+	
+	this.button = (1 == domMouseEvent.type 
+					? freakdev.event.MouseEvent.LEFT_BUTTON 
+					: freakdev.event.MouseEvent.RIGHT_BUTTON);
+
+	//this.specialKeys;	
+		
+	this.x = domMouseEvent.layerX - domMouseEvent.target.offsetLeft;
+	this.y = domMouseEvent.layerY - domMouseEvent.target.offsetTop;
+	
+};
 
 Fkd.createNamespace('freakdev.canvas.image');
 
@@ -285,61 +429,103 @@ freakdev.canvas.Canvas = function ()
 	this.init.apply(this, arguments);
 };
 
-freakdev.canvas.Canvas.CLICK = 'click';
-freakdev.canvas.Canvas.DBLCLICK = 'dblclick';
-
-freakdev.canvas.Canvas.MOUSE_DOWN = 'mousedown';
-freakdev.canvas.Canvas.MOUSE_MOVE = 'mousemove';
-freakdev.canvas.Canvas.MOUSE_OUT = 'mouseout';
-freakdev.canvas.Canvas.MOUSE_OVER = 'mouseover';
-freakdev.canvas.Canvas.MOUSE_UP = 'mouseup';
-
-freakdev.canvas.Canvas.KEY_DOWN = 'keydown';
-freakdev.canvas.Canvas.KEY_PRESS = 'keypress';
-freakdev.canvas.Canvas.KEY_UP = 'keyup';
-
-freakdev.canvas.Canvas.EVENTS = ['click', 'dblclick', 'mousedown', 
-                                 'mousemove', 'mouseout', 'mouseover', 
-                                 'mouseup', 'keydown', 'keypress', 'keyup'];
-
+/**
+ * constructor
+ * @param {String} [optional] domCanvasId - the id attribute of a already existing canvas node
+ */
 freakdev.canvas.Canvas.prototype.init = function (domCanvasId)
 {	
-		
-	// shorthands
-	this.Dom = freakdev.utils.Dom;
-	this.Debug = freakdev.utils.Debug;	
-
+	/**
+	 * is the canvas domobject has already been inserted to DOM
+	 * @type {Boolean}
+	 */
 	this.insertedToDom = false;
 	
-	this.canvasNode;
-	this.getCanvas(undefined != domCanvasId ? domCanvasId : false);
-
-	this._autoRenderTimer;
-	this._isRendering;
+	/**
+	 * a placeholder dom node for the canvas element
+	 * @type {DOMNode}
+	 */
+	this._domPlaceholder = null;	
 	
-	this.scene;	
+	/**
+	 * DOM node
+	 * @type {DOMNode} 
+	 */
+	this.canvasNode = null;
+
+	/**
+	 * reference to the render timer
+	 * @type {Integer?}
+	 */
+	this._autoRenderTimer = null;
+	
+	/**
+	 * is the canvas beeing rendering itself
+	 * @type {Boolean}
+	 */
+	this._isRendering = false;
+	
+	/**
+	 * Frame per seconds
+	 * @type {Integer}
+	 */
+	this._fps = 100;
+	
+	/**
+	 * the scene
+	 * @type {freakdev.canvas.scene.Scene}
+	 */
+	this.scene = null;	
+	
+	this.getCanvas(undefined != domCanvasId ? domCanvasId : false);
 	this._initScene();
 	this._initEvent();
 };
 
+/**
+ * initialize scene object
+ * @returns void
+ */
 freakdev.canvas.Canvas.prototype._initScene = function ()
 {
-	this.scene = new freakdev.canvas.scene.Scene(this.getCanvas());
+	this.scene = new freakdev.canvas.scene.Scene(this);
 	this.scene.setId('scene');
 };
 
+/** 
+ * initialize DOMEvent handled by this canvas
+ * @returns void
+ */
 freakdev.canvas.Canvas.prototype._initEvent = function ()
 {
-	for (var i in freakdev.canvas.Canvas.EVENTS) {
-		this.getCanvas().addEventListener(freakdev.canvas.Canvas.EVENTS[i], Fkd.createDelegate(this.scene.handleEvent, this.scene), true);
+	var eventListener = Fkd.createDelegate(function (event) {
+		var e = freakdev.event.EventManager.getInstance().domEventFactory(event, this);
+		(Fkd.createDelegate(this.scene.handleEvent, this.scene))(e);
+	}, this);
+	
+	for (var i in freakdev.event.DOM_EVENTS) {
+		this.getCanvas().addEventListener(freakdev.event.DOM_EVENTS[i], eventListener, true);
 	}
 };
 
+/**
+ * Deprecated
+ */
+freakdev.canvas.Canvas.prototype.propagateEvent = function (event)
+{
+	this.scene.handleEvent.call(this, event);
+};
+
+/**
+ * get or create DOMNode 
+ * @param {String} idAttr id given, this function will get the canvas DOMNode with a matching id attribute 
+ * @returns {DOMNode} canvasNode;
+ */
 freakdev.canvas.Canvas.prototype.getCanvas = function (idAttr)
 {
 	if (!this.canvasNode) {
 		if (idAttr) {
-			this.canvasNode = this.Dom.get(idAttr);
+			this.canvasNode = DomHelper.get(idAttr);
 			this.insertedToDom = true;
 		} else {
 			this.canvasNode = document.createElement('canvas');
@@ -348,40 +534,83 @@ freakdev.canvas.Canvas.prototype.getCanvas = function (idAttr)
 	return this.canvasNode;
 };
 
+/**
+ * get the context from the canvas DOMNode object
+ * @returns
+ */
 freakdev.canvas.Canvas.prototype.getContext = function ()
 {
 	return this.getCanvas().getContext('2d');
 };
 
+/**
+ * resize the canvas
+ * @param {Integer} width
+ * @param {Integer} height
+ * @returns void
+ */
 freakdev.canvas.Canvas.prototype.resize = function (width, height)
 {
 	this.getCanvas().width = width;
 	this.getCanvas().height = height;
 	
-	this._initScene();
+	this.scene.resize(width, height);
 };
 
+/**
+ * [not implemented yet] returns an object which has been added to the scene's object tree 
+ * @param {String} queryString
+ * @returns {freakdev.canvas.scene.Object}
+ */
 freakdev.canvas.Canvas.prototype.query = function (queryString)
 {
 	
 };
 
+freakdev.canvas.Canvas.prototype.setDomPlaceholder = function (ph) 
+{
+	if ('string' == typeof ph)
+		ph = DomHelper.get(ph);
+	
+	if (null == ph)
+		ph = DomHelper.getByTagName('body').item(0);
+	
+	this._domPlaceholder = ph;
+};
+
+freakdev.canvas.Canvas.prototype.getDomPlaceholder = function ()
+{
+	return this._domPlaceholder;
+};
+
+/**
+ * render the scene, insert the canvas to the dom if needed
+ * if canvas node is not already present in the dom, it try 
+ * to append it to the dom node passed in arguments or if 
+ * none were given, it append it to the body
+ * @returns void
+ */
 freakdev.canvas.Canvas.prototype.render = function ()
 {
 	this._isRendering = true;
 	
-	if (this.scene.isRenderNeeded()) {
-		this.scene.renderTo(this.getContext());
+		if (!this.scene.isRendering()) {
+	
+		if (this.scene.isRenderNeeded()) {
+			this.scene.renderTo(this);
+		}
 	}
 	
 	if (!this.insertedToDom) {
 		this.insertedToDom = true;
 		var pNode;
 		if (arguments.length)
-			pNode = this.Dom.get(arguments[0]);
+			pNode = this.setDomPlaceholder(arguments[0]);
+		else
+			pNode = this.getDomPlaceholder();
 			
 		if (!pNode)
-			pNode = this.Dom.getByTagName('body').item(0);
+			pNode = DomHelper.getByTagName('body').item(0);
 
 		pNode.appendChild(this.getCanvas());
 	}
@@ -389,20 +618,165 @@ freakdev.canvas.Canvas.prototype.render = function ()
 	this._isRendering = false;
 };
 
-freakdev.canvas.Canvas.prototype.runAutoRender = function (fps)
+/**
+ * wrapper for method CanvasRenderingContext2D.save()
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.save = function () 
 {
-	if (undefined == fps)
-		fps = 40;
+	this.getContext().save();
+};
+
+/**
+ * wrapper for method CanvasRenderingContext2D.restore()
+ * if nb is given the restore function  will be called nb times
+ * @param {Integer} nb
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.restore = function (nb) 
+{
+	if (undefined == nb)
+		var nb = 1;
+
+	for (var i=0; i<nb; i++) {
+		this.getContext().restore();
+	}
+};
+
+/**
+ * generic setter for CanvasRenderingContext2D property
+ * @param {String} field - the name of the property
+ * @param {Mixed} value - the value to assign
+ * @param {Boolean} autoSave - if true, CanvasRenderingContext2D.save() will be called before changing the property
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.updateContext = function (field, value, autoSave)
+{
+	if (false !== autoSave)
+		this.save();
+		
+	var ctx = this.getContext();
+	ctx[field] = value;
 	
-	var interval = parseInt(1000 / fps);
+};
+
+/**
+ * wrapper for method CanvasRenderingContext2D.translate()
+ * @param {Integer} x
+ * @param {Integer} y
+ * @param {Boolean} autoSave - if true, CanvasRenderingContext2D.save() will be called before changing the property
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.translateTo = function (x, y, autoSave) 
+{
+	if (false !== autoSave)
+		this.save();	
+	
+	var ctx = this.getContext();
+	ctx.translate(x, y);
+};
+
+/**
+ * call the translateTo method with the coord of the given object "center" 
+ * @param {freakdev.canvas.scene.Object} object
+ * @param {Boolean} autoSave - if true, CanvasRenderingContext2D.save() will be called before changing the property
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.translateToObjectCenter = function (object, autoSave) 
+{	
+	var x = object.getX() + parseInt(object.getWidth() / 2);
+	var y = object.getY() + parseInt(object.getHeight() / 2);
+	
+	this.translateTo(x, y, autoSave);
+};
+
+/**
+ * wrapper for method rotate()
+ * @param {Integer} angle - in degree
+ * @param {Boolean} autoSave - if true, CanvasRenderingContext2D.save() will be called before changing the property
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.rotate = function (angle, autoSave)
+{
+	if (false !== autoSave)
+		this.save();
+	
+	var ctx = this.getContext();
+	ctx.rotate(angle * Math.PI / 180);
+};
+
+/**
+ * wrapper for method scale()
+ * @param {Integer} scale - the same scale will be applied to width and height
+ * @param {Boolean} autoSave - if true, CanvasRenderingContext2D.save() will be called before changing the property
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.scale = function (scale, autoSave)
+{
+	this.scaleXY(scale, scale, autoSave);
+};
+
+/**
+ * wrapper for method scale()
+ * @param {Integer} scaleX
+ * @param {Integer} scaleY
+ * @param {Boolean} autoSave - if true, CanvasRenderingContext2D.save() will be called before changing the property
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.scaleXY = function (scaleX, scaleY, autoSave) 
+{
+	if (false !== autoSave)
+		this.save();
+	
+	var ctx = this.getContext();
+	ctx.scale(scaleX, scaleY);
+};
+
+/**
+ * starts rendering at regular intervals (fps)
+ * @param {Integer} fps - the value of fps can be set here the default (if it has never been set anywhere else) value is 100 fps
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.startAutoRender = function (fps)
+{
+	if (undefined != fps)
+		this.setFps(fps);
+	
+	var interval = parseInt(1000 / this.getFps());
 	
 	this._autoRenderTimer = setInterval(Fkd.createDelegate(this.render, this), interval);
 };
 
+/**
+ * change fps value
+ * @param {Integer} fps - the value of fps can be set here the default (if it has never been set anywhere else) value is 100 fps
+ * @returns void
+ */
+freakdev.canvas.Canvas.prototype.setFps = function (fps)
+{
+	this._fps = fps;
+};
+
+/**
+ * get the fps
+ * @param {Integer} fps
+ * @returns {Integer}
+ */
+freakdev.canvas.Canvas.prototype.getFps = function ()
+{
+	return this._fps;
+};
+
+
+/**
+ * stop auto rendering (at regular interval)
+ * @returns
+ */
 freakdev.canvas.Canvas.prototype.stopAutoRender = function () 
 {
 	clearInterval(this._autoRenderTimer);
 };
+
 
 
 
@@ -413,78 +787,277 @@ freakdev.canvas.scene.Object = function ()
 	this.init.apply(this, arguments);
 };
 
+/**
+ * constructor
+ * @param {Integer} x
+ * @param {Integer} y
+ * @param {Integer} width
+ * @param {Integer} height
+ */
 freakdev.canvas.scene.Object.prototype.init = function(x, y, width, height)
 {
+	/**
+	 * id attribute
+	 * @type String
+	 */
 	this.id = freakdev.utils.Uuid();
+	
+	/**
+	 * img tag used to make rendering to canvas easier and faster
+	 * @type Image
+	 */
 	this._imgTag = new Image((width ? width : null), (height ? height : null));
 	
+	/**
+	 * non modified width of the image tag
+	 * @type {Integer}
+	 */
+	this._naturalWidth = 0;
+	
+	/**
+	 * non modified height of the image tag
+	 * @type {Integer}
+	 */	
+	this._naturalHeight = 0;
+	
+	/**
+	 * x position of the object
+	 * @type {Integer}
+	 */
 	this.x = undefined == x ? 0 : x;
+
+	/**
+	 * y position of the object
+	 * @type {Integer}
+	 */	
 	this.y = undefined == y ? 0 : y;
+	
+	/**
+	 * whether or not an object is active
+	 * @type {Boolean}
+	 */	
 	this.activeStatus = false;
+
+	/**
+	 * whether or not an object has the focus
+	 * @type {Boolean}
+	 */	
 	this.focusStatus = false;
+
+	/**
+	 * whether or not an object is visible
+	 * @type {Boolean}
+	 */	
 	this.visibilityStatus = true;
+
+	/**
+	 * opacity value of the object
+	 * @type {Integer}
+	 */	
 	this.opacity = 1;
+
+	/**
+	 * rotation value of the object
+	 * @type {Integer}
+	 */	
+	this.rotation = 0; // degree
+	
+	/**
+	 * scale for 'x' dimension of the object
+	 * @type {Integer}
+	 */	
+	this.scaleX = 1;
+	
+	/**
+	 * scale for 'y' dimension of the object
+	 * @type {Integer}
+	 */	
+	this.scaleY = 1;
 	//this.effectPool = new freakdev.canvas.image.EffectPool();
 	
-	this._container;
+	/**
+	 * reference to the container in which the object has been added (eg:a displaygroup, the scene, ...)
+	 * @type {freakdev.canvas.scene.Object}
+	 */
+	this._container = null;
+	
+	/**
+	 * whether or not an object has to render
+	 * @type {Boolean}
+	 */
 	this._needToRender = true;
 	
+	/**
+	 * true when the rendering job is not terminated
+	 * @type {Boolean}
+	 */
+	this._isRendering = false;
+	
 	this._eventListeners = [];
+	
+	/**
+	 * anchor point for geometric transformations (only used for mouse drag and drop for the moment)
+	 * @type Object 
+	 */
+	this._anchorPoint = {};
+	
+	
+	this.resetAnchorPoint();
 };
 
+/**
+ * setter for the needToRender flag
+ * @param {Boolean} value
+ * @returns void
+ */
+freakdev.canvas.scene.Object.prototype.setNeedToRender = function (value)
+{
+	if (undefined == value)
+		value = true;
+	
+	if (value && null != this._container) {
+		this._container.setNeedToRender();
+	}
+	
+	this._needToRender = value;
+};
+
+/**
+ * reset anchor point to 0, 0
+ * @returns void
+ */
+freakdev.canvas.scene.Object.prototype.resetAnchorPoint = function ()
+{
+	this._anchorPoint = {x: 0, y: 0};
+};
+
+/**
+ * define anchor point 
+ * @param {Integer} x
+ * @param {Integer} y
+ * @returns void 
+ */
+freakdev.canvas.scene.Object.prototype.setAnchorPoint = function (x, y)
+{
+	this._anchorPoint = {'x': x, 'y': y};
+};
+
+/**
+ * set the id property (id should be unique)
+ * @param {String} value
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setId = function (value) 
 {
 	this.id = value;
 };
 
+/**
+ * return the id property
+ * @returns {String} id
+ */
 freakdev.canvas.scene.Object.prototype.getId = function () 
 {
 	return this.id;
 };
 
+/**
+ * render if needed and print the content of the object to the given target
+ * this méthod is called by the object container during the rendering process
+ * @param {freakdev.canvas.Cnavas} target
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.renderTo = function (target) 
 {
+	var tmpX, tmpY;
+	
 	if (this.isVisible()) {
-		if (this._needToRender)
+		if (this.isRenderNeeded())
 			this.render();
+	
+		var ctx = target.getContext();
 		
-		if (this.opacity < 1) {
-			target.save();
-			target.globalAlpha = this.opacity;
-		}		
+		if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+			
+			target.updateContext('globalAlpha', this.opacity);
+			
+			target.translateToObjectCenter(this);
+			
+			tmpX = this.getX(); tmpY = this.getY();
+			this.setX(- (parseInt((this.getWidth() / 2))));
+			this.setY(- (parseInt((this.getHeight() / 2))));
+
+			target.rotate(this.rotation);
+			
+			target.scale(this.getScaleX(), this.getScaleY());
+		}
 		
 		this._drawToTarget(target);
 		
-		if (this.opacity < 1)
-			target.restore();		
+		if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+			
+			target.restore(4);
+			this.setX(tmpX);
+			this.setY(tmpY);
+			
+		}
 	}
 };
 
+/**
+ * draw the raw content of the object to the target  
+ * @param {freakdev.canvas.Canvas} target
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype._drawToTarget = function (target)
 {
-	target.drawImage(this.getImgTag(), this.x, this.y, this.getWidth(), this.getHeight());	
-}
-
-freakdev.canvas.scene.Object.prototype.needToRender = function ()
-{
-	this._needToRender = true;
-	this._container.needToRender();
+	target.getContext().drawImage(this.getImgTag(), 0, 0, this._naturalWidth, this._naturalHeight, this.getX(), this.getY(), this.getWidth(), this.getHeight());	
 };
 
+/**
+ * getter for the needToRender flag
+ * @returns {Boolean} needToRender
+ */
 freakdev.canvas.scene.Object.prototype.isRenderNeeded = function ()
 {
 	return this._needToRender;
 };
 
+/**
+ * set the object container
+ * this method is automatically called by the container
+ * @param {freakdev.canvas.scene.Object} obj
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setContainer = function (obj)
 {
 	this._container = obj;
-}
+};
 
+/**
+ * render the object (apply effects)
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.render = function () 
 {
-	this._needToRender = false;
+	if (this._isRendering)
+		return;
+	
+	this._isRendering = true;
+	this.setNeedToRender(false);
+	
 	//this.effectPool.apply(this);
+	
+	this._isRendering = false;
+};
+
+/**
+ * getter fot the is_rendering flag
+ * @returns {Boolean} isRendering
+ */
+freakdev.canvas.scene.Object.prototype.isRendering = function ()
+{
+	return this._isRendering;
 };
 
 freakdev.canvas.scene.Object.prototype.isEventHandled = function (eventName)
@@ -493,7 +1066,7 @@ freakdev.canvas.scene.Object.prototype.isEventHandled = function (eventName)
 		return true;
 	else 
 		return false;
-}
+};
 
 freakdev.canvas.scene.Object.prototype.handleEvent = function (e)
 {
@@ -503,14 +1076,10 @@ freakdev.canvas.scene.Object.prototype.handleEvent = function (e)
 	if (!this.isEventHandled(e.type))
 		return false;
 	
-	if (this._shouldHandleEvent(e)) {
-		for (var j=0,len=this._eventListeners[e.type].length; j<len; j++) {
-			Fkd.call_fn_array(this._eventListeners[e.type][j], [e]);
-		}
-		return true;
-	} else {
-		return false;
+	for (var j=0,len=this._eventListeners[e.type].length; j<len; j++) {
+		return Fkd.call_fn_array(this._eventListeners[e.type][j], [e]);
 	}
+	return true;
 };
 
 freakdev.canvas.scene.Object.prototype.removeEventListeners = function (eventName, listener) 
@@ -535,71 +1104,253 @@ freakdev.canvas.scene.Object.prototype.addEventListener = function (eventName, l
 	this._eventListeners[eventName].push(listener);
 };
 
-freakdev.canvas.scene.Object.prototype._shouldHandleEvent = function (event)
+freakdev.canvas.scene.Object.prototype._shouldHandleMouseEvent = function (event)
 {
-	return false;
+	var ctx = event.canvas.getContext();
+
+	if (0 != this.rotation) {
+		//ctx.save();
+	}
+	
+	ctx.beginPath();
+	ctx.moveTo(this.getX()					, this.getY());
+	ctx.lineTo(this.getX() + this.getWidth(), this.getY());
+	ctx.lineTo(this.getX() + this.getWidth(), this.getY() + this.getHeight());
+	ctx.lineTo(this.getX()					, this.getY() + this.getHeight());	
+	ctx.lineTo(this.getX()					, this.getY());
+	ctx.closePath();
+		
+	// debug
+	//ctx.stroke();
+	
+	//debug(event);
+	
+	return ctx.isPointInPath(event.x, event.y);
 };
 
+/** 
+ * returns width of the object
+ * @returns {Integer} width
+ */
 freakdev.canvas.scene.Object.prototype.getWidth = function () 
 {
 	return this.getImgTag().width;
 };
 
+/** 
+ * returns height of the object
+ * @returns {Integer} height
+ */
 freakdev.canvas.scene.Object.prototype.getHeight = function ()
 {
 	return this.getImgTag().height;
 };
 
+/** 
+ * returns x of the object
+ * @returns {Integer} x
+ */
 freakdev.canvas.scene.Object.prototype.getX = function () 
 {
 	return this.x;
 };
 
+/** 
+ * returns y of the object
+ * @returns {Integer} y
+ */
 freakdev.canvas.scene.Object.prototype.getY = function ()
 {
 	return this.y;
 };
 
+/** 
+ * returns image tag of the object
+ * @returns {Integer} imgTag
+ */
 freakdev.canvas.scene.Object.prototype.getImgTag = function ()
 {
 	return this._imgTag;
 };
 
+/** 
+ * returns opacity of the object
+ * @returns {Integer} opacity
+ */
 freakdev.canvas.scene.Object.prototype.getOpacity = function ()
 {
 	return this.opacity;
 };
 
+/** 
+ * returns rotation angle in degree of the object
+ * @returns {Integer} rotation
+ */
+freakdev.canvas.scene.Object.prototype.getRotation = function ()
+{
+	return this.rotation;
+};
+
+/** 
+ * returns scale of the object - the two dimensions are return in the 'x' and 'y' property of a simple JS object
+ * @returns {Object} scale
+ */
+freakdev.canvas.scene.Object.prototype.getScale = function ()
+{
+	return {'x' : this.scaleX, 'y' : this.scaleY};
+};
+
+/** 
+ * returns scale on X axis of the object
+ * @returns {Integer} scale
+ */
+freakdev.canvas.scene.Object.prototype.getScaleX = function ()
+{
+	return this.scaleX;
+};
+
+/** 
+ * returns scale on Y axis of the object
+ * @returns {Integer} scale
+ */
+freakdev.canvas.scene.Object.prototype.getScaleY = function ()
+{
+	return this.scaleY;
+};
+
+/** 
+ * returns whether or not the object is active (not implemented yet)
+ * @returns {Boolean} focusStatus
+ */
+freakdev.canvas.scene.Object.prototype.isActive = function ()
+{
+	return this.activeStatus;
+};
+
+/** 
+ * returns whether or not the object has focus (not implemented yet)
+ * @returns {Boolean} focusStatus
+ */
+freakdev.canvas.scene.Object.prototype.hasFocus = function ()
+{
+	return this.focusStatus;
+};
+
+/** 
+ * returns whether or not the object is visible
+ * @returns {Boolean} visibilityStatus
+ */
+freakdev.canvas.scene.Object.prototype.isVisible = function ()
+{
+	return this.visibilityStatus;
+};
+
+
+
+
+/** 
+ * set opacity of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setOpacity = function (value) 
 {
 	this.opacity = value;
 };
 
+/** 
+ * set rotation of the object
+ * @returns void
+ */
+freakdev.canvas.scene.Object.prototype.setRotation = function (value) 
+{
+	this.rotation = value;
+};
+
+/** 
+ * set scale on x axys of the object
+ * @returns void
+ */
+freakdev.canvas.scene.Object.prototype.setScaleX = function (value) 
+{
+	this.scaleX = parseFloat(value);
+	var oldWidth = this.getWidth();
+	this.setWidth(this._naturalWidth * this.getScaleX());
+	this.setX(this.getX() - (this.getWidth() - oldWidth) / 2);
+};
+
+/** 
+ * set scale on y axys of the object
+ * @returns void
+ */
+freakdev.canvas.scene.Object.prototype.setScaleY = function (value) 
+{
+	this.scaleY = parseFloat(value);
+	var oldHeight = this.getHeight();
+	this.setHeight(this._naturalHeight * this.getScaleY());
+	this.setY(this.getY() - (this.getHeight() - oldHeight) / 2);
+};
+
+/** 
+ * set scale of the object
+ * @returns void
+ */
+freakdev.canvas.scene.Object.prototype.setScale = function (value) 
+{
+	this.setScaleX(parseFloat(value));
+	this.setScaleY(parseFloat(value));
+};
+
+/** 
+ * set image tag of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setImgTag = function (value) 
 {
 	this._imgTag = value;
+	this._naturalWidth = this._imgTag.width;
+	this._naturalHeight = this._imgTag.height;
 };
 
+/** 
+ * set width of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setWidth = function (value) 
 {
 	this.getImgTag().width = value;
 };
 
+/** 
+ * set height of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setHeight = function (value)
 {
 	this.getImgTag().height = value;
 };
 
+/** 
+ * set x of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setX = function (value)
 {
 	this.x = value;
 };
 
+/** 
+ * set y of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setY = function (value)
 {
 	this.y = value;
 };
 
+/** 
+ * set active of the object (not implemented yet)
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setActive = function (status)
 {
 	if (undefined == status)
@@ -608,11 +1359,10 @@ freakdev.canvas.scene.Object.prototype.setActive = function (status)
 	this.activeStatus = status;
 };
 
-freakdev.canvas.scene.Object.prototype.isActive = function ()
-{
-	return this.activeStatus;
-};
-
+/** 
+ * set focud on the object (not implemented yet)
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.focus = function (status)
 {
 	if (undefined == status)
@@ -621,11 +1371,10 @@ freakdev.canvas.scene.Object.prototype.focus = function (status)
 	this.focusStatus = status;
 };
 
-freakdev.canvas.scene.Object.prototype.hasFocus = function ()
-{
-	return this.focusStatus;
-};
-
+/** 
+ * set visibility of the object
+ * @returns void
+ */
 freakdev.canvas.scene.Object.prototype.setVisible = function (status)
 {
 	if (undefined == status)
@@ -634,33 +1383,77 @@ freakdev.canvas.scene.Object.prototype.setVisible = function (status)
 	this.visibilityStatus = status;
 };
 
-freakdev.canvas.scene.Object.prototype.isVisible = function ()
-{
-	return this.visibilityStatus;
-};
-
 
 Fkd.createNamespace('freakdev.canvas.scene');
 
 freakdev.canvas.scene.DisplayGroup = Fkd.extend(freakdev.canvas.scene.Object);
 
+/**
+ * constructor
+ * @param {Integer} x
+ * @param {Integer} y
+ * @param {Integer} width
+ * @param {Integer} height
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.init = function(x, y, width, height)
 {
+	/**
+	 * atlas of elements that belongs to this display group
+	 * @type Array
+	 */
 	this._atlas = [];
 	
 	freakdev.canvas.scene.DisplayGroup.superClass.init.call(this, x, y, width, height);
 };
 
-freakdev.canvas.scene.DisplayGroup.prototype._drawToTarget = function (target)
-{	
+/**
+ * handle DOM event (mouse, keyboard event, etc...)
+ * @param {freakdev.event.Event} e
+ * @returns void
+ */
+freakdev.canvas.scene.DisplayGroup.prototype.handleEvent = function (e)
+{
+	for (var i=(this._atlas.length - 1); i>=0; i--) {
+		var o = this._atlas[i];
+		o.handleEvent.call(o, e);
+	}	
+	
+	return freakdev.canvas.scene.DisplayGroup.superClass.handleEvent.call(this, e);
+};
+
+freakdev.canvas.scene.DisplayGroup.prototype._drawToTarget = function (target) { 
+
 	for (var i=0,len=this._atlas.length; i<len; i++) {
 		var o = this._atlas[i];
-		o.renderTo(target);
+		o.renderTo(this.targetCanvas);
+	}
+	
+};
+
+/**
+ * callback for threads in charge of rendering
+ * @returns void
+ */
+freakdev.canvas.scene.DisplayGroup.prototype._renderThreadCallback = function ()
+{
+	var threadBroker = freakdev.thread.Broker.getInstance();
+
+	if (threadBroker.isFinished(this.getId())) {
+		this._isRendering = false;
+		this.setNeedToRender(false);
+		this.renderTo(this.targetCanvas);
 	}
 };
 
+/**
+ * trigger rendering of each child
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.render = function ()
 {
+	if (this._isRendering)
+		return;
+	
 	var threadBroker = freakdev.thread.Broker.getInstance();
 
 	var threadGroupID = freakdev.utils.Uuid();
@@ -668,43 +1461,81 @@ freakdev.canvas.scene.DisplayGroup.prototype.render = function ()
 	for (var i=0,len=this._atlas.length; i<len; i++) {
 		var o = this._atlas[i];
 
-    	threadBroker.startThread({fn:o.render, scope:o}, [], null, threadGroupID);
+    	threadBroker.startThread({fn:o.render, scope:o}, [], {fn:this._renderThreadCallback, scope:this}, this.getId());
 	}
-	
-	// wait for all process to be finnished
-	while(!threadBroker.isFinnished(threadGroupID)) { }
-}
+};
 
+/**
+ * in charge all the rendering process for himself and its child and printing the rendered content on a target (canvas)
+ * this method is called during the rendering process managed by the freakdev.canvas.Canvas Object 
+ * @param {freakdev.canvas.Canvas} canvas
+ * @returns void
+ */
+freakdev.canvas.scene.DisplayGroup.prototype.renderTo = function (canvas) 
+{	
+	if (undefined != canvas)
+		this.targetCanvas = canvas;
+	
+	freakdev.canvas.scene.DisplayGroup.superClass.renderTo.call(this, this.targetCanvas);
+};
+
+/**
+ * push an element at the end of the children stack (it will overlay all previously added children)
+ * @param {freakdev.canvas.scene.Object} o
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.push = function (o)
 {
 	o.setContainer(this);
 	this._atlas.push(o);
 };
 
+/**
+ * remove the last element of the children stack
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.pop = function ()
 {
 	var o = this._atlas.pop();
 	o.setContainer(null);
 };
 
+/**
+ * add en element at the top of the children stack (it will be overlayed by all previously added children)
+ * @param {freakdev.canvas.scene.Object} o
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.unshift = function (o)
 {
 	o.setContainer(this);
 	this._atlas.unshift(o);
 };
 
+/**
+ * remove the first element from the children stack
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.shift = function ()
 {
 	var o = this._atlas.shift();
 	o.setContainer(null);
 };
 
+/**
+ * insert an element at a given place in the children stack
+ * @param {freakdev.canvas.scene.Object} o
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.insertAt = function (i, o)
 {
 	o.setContainer(this);
 	this._atlas.splice(i, 0, o);
 };
 
+/**
+ * remove an element at a given place in the children stack
+ * @returns void
+ */
 freakdev.canvas.scene.DisplayGroup.prototype.removeAt = function (i)
 {
 	var o = this._atlas.splice(i, 1);
@@ -717,36 +1548,60 @@ Fkd.createNamespace('freakdev.canvas.scene');
 
 freakdev.canvas.scene.Scene = Fkd.extend(freakdev.canvas.scene.DisplayGroup);
 
+/**
+ * constructor
+ * @param {freakdev.canvas.Canvas} target - Canvas object in which the scene will be rendered 
+ */
 freakdev.canvas.scene.Scene.prototype.init = function (target)
 {	
 	this.targetCanvas = target;
 	
-	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, this.targetCanvas.width, this.targetCanvas.height);	
+	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, this.targetCanvas.getCanvas().width, this.targetCanvas.getCanvas().height);	
 };
 
-freakdev.canvas.scene.Scene.prototype.render = function () 
+/**
+ * in charge of rendering the scene
+ * @param {freakdev.canvas.Canvas} [optional] canvas - set the target 
+ * @returns void
+ */
+freakdev.canvas.scene.Scene.prototype.renderTo = function (canvas) 
 {
-	//freakdev.canvas.scene.Scene.superClass.renderTo(this.targetCanvas.getContext('2d'));
-};
-
-freakdev.canvas.scene.Scene.prototype.renderTo = function () 
-{
-
-	ctx = this.targetCanvas.getContext('2d');
+	if (undefined != canvas)
+		this.targetCanvas = canvas;
 	
-	ctx.clearRect(0, 0, this.targetCanvas.width, this.targetCanvas.height);
+	ctx = this.targetCanvas.getContext();
+	
+	ctx.clearRect(0, 0, this.targetCanvas.getCanvas().width, this.targetCanvas.getCanvas().height);
 	
 	for (var i=0,len=this._atlas.length; i<len; i++) {
 		var o = this._atlas[i];
-		o.renderTo(ctx);
+		o.renderTo(this.targetCanvas);
 	}
+};
 
+freakdev.canvas.scene.Scene.prototype.setVisible = function (status) { throw new Error('Can\'t change visibility status of the scene'); };
+
+/**
+ * resize the scene, this method is automatically called by the canvas 
+ * @param {Integer} width
+ * @param {Integer} height
+ * @returns void
+ */
+freakdev.canvas.scene.Scene.prototype.resize = function (width, height)
+{
+	this.setWidth(width);
+	this.setHeight(height);
 };
 
 Fkd.createNamespace('freakdev.canvas.scene');
 
 freakdev.canvas.scene.Image = Fkd.extend(freakdev.canvas.scene.Object);
-
+/**
+ * constructor
+ * @param {String} domId - id attribute of an image tag
+ * @param {Integer} x 
+ * @param {Integer} y
+ */
 freakdev.canvas.scene.Image.prototype.init = function(domId, x, y)
 {
 	x = undefined == x ? 0 : x;
@@ -802,17 +1657,18 @@ freakdev.thread.Broker.prototype.setMaxSimultaneous = function (value)
 	this.maxSimul = parseInt(value);
 };
 
-freakdev.thread.Broker.prototype.startTimer = function ()
-{
-	this.timerOn = true;
-	this.timerID = setInterval(Fkd.createDelegate(this.processStack, this), 1);
-};
-
-freakdev.thread.Broker.prototype.stopTimer = function ()
-{
-	this.timerOn = false;
-	clearInterval(this.timerID);
-};
+//freakdev.thread.Broker.prototype.startTimer = function ()
+//{
+//	this.timerOn = true;
+//	
+//	this.timerID = setInterval(Fkd.createDelegate(this.processStack, this), 15);
+//};
+//
+//freakdev.thread.Broker.prototype.stopTimer = function ()
+//{
+//	this.timerOn = false;
+//	clearInterval(this.timerID);
+//};
 
 freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, groupID)
 {
@@ -839,8 +1695,17 @@ freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, g
 	else
 		this.threads[groupID].push(t);
 	
-	if (!this.timerOn)
-		this.startTimer();
+//	if (!this.timerOn)
+//		this.startTimer();
+	
+	var script = document.createElement("script");
+	script.src  = "data:,";
+	script.onload = Fkd.createDelegate(function () {
+		document.body.removeChild(script);
+		this.processStack();
+	}, this);
+	document.getElementsByTagName('body').item(0).appendChild(script);
+	
 };
 
 freakdev.thread.Broker.prototype.processStack = function ()
@@ -850,10 +1715,10 @@ freakdev.thread.Broker.prototype.processStack = function ()
 	
 	this.nbStarted++;
 	
-	if (!this.threadStack[0]) {
-		this.stopTimer();
-		return;
-	}
+//	if (!this.threadStack[0]) {
+//		this.stopTimer();
+//		return;
+//	}
 	
 	var groupID = this.threadStack[0];	
 	
@@ -864,29 +1729,31 @@ freakdev.thread.Broker.prototype.processStack = function ()
 	
 	var r = t.run();
 	
-	if (t.callback.scope && t.callback.fn) {
-		scope = t.callback.scope;
-		fn = t.callback.fn;
-	} else {
-		scope = window;
-		fn = t.callback;
-	}	
-	
+	if (t.callback) {
+		if (t.callback.scope && t.callback.fn) {
+			scope = t.callback.scope;
+			fn = t.callback.fn;
+		} else {
+			scope = window;
+			fn = t.callback;
+		}		
+	}
+		
 	this.nbStarted--;
 	
 	if (0 == this.threads[groupID].length) {
-		this.threads[groupID] = null;
+		delete(this.threads[groupID]);
 		this.threadStack.splice(0, 1);
 	}
 	
-	if (0 == this.threadStack.length) {
-		this.stopTimer();
-	}
+//	if (0 == this.threadStack.length) {
+//		this.stopTimer();
+//	}
 	
 	fn.call(scope, r);
 };
 
-freakdev.thread.Broker.prototype.isFinnished = function (groupID) 
+freakdev.thread.Broker.prototype.isFinished = function (groupID)
 {
 	var r = (this.threadStack.indexOf(groupID.toString()) == -1 ? true : false);
 	return r;
@@ -919,7 +1786,6 @@ freakdev.thread.Thread.prototype.run = function ()
 	}
 		
 	return fn.apply(scope, this.params);
-		
 };
 	
 })();

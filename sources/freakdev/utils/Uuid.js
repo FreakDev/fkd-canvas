@@ -49,3 +49,6 @@ freakdev.utils.Uuid = (function() {
     return uuid.join('');
   };
 })();
+
+// shorthand
+var generateUuid = freakdev.utils.Uuid;

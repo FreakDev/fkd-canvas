@@ -24,5 +24,4 @@ freakdev.thread.Thread.prototype.run = function ()
 	}
 		
 	return fn.apply(scope, this.params);
-		
 };
