@@ -1,7 +1,7 @@
 Fkd.createNamespace('freakdev.event');
 
 freakdev.event.CLICK = 'click';
-freakdev.eventDBLCLICK = 'dblclick';
+freakdev.event.DBLCLICK = 'dblclick';
 
 freakdev.event.MOUSE_DOWN = 'mousedown';
 freakdev.event.MOUSE_MOVE = 'mousemove';
@@ -23,9 +23,9 @@ freakdev.event.DRAG_START = 'dragstart';
 freakdev.event.DROP = 'drop';
 
 freakdev.event.DOM_EVENTS = ['mousedown', 'mousemove', 'mouseout', 'mouseover', 
-                             'mouseup', 'mousewheel', 'keydown', 'keypress', 
-                             'keyup', 'drag', 'dragend', 'dragenter', 'dragleave', 
-                             'dragover','dragstart', 'drop'];
+                 'mouseup', 'mousewheel', 'keydown', 'keypress', 
+                 'keyup', 'drag', 'dragend', 'dragenter', 'dragleave', 
+                 'dragover','dragstart', 'drop'];
 
 freakdev.event.EventManager = function () 
 {
@@ -35,6 +35,7 @@ freakdev.event.EventManager = function ()
 freakdev.event.EventManager.prototype.init = function ()
 {
 	this._eventListeners = [];
+	this._registeredEvents = [];
 };
 
 freakdev.event.EventManager.instance = null;
@@ -48,9 +49,34 @@ freakdev.event.EventManager.getInstance = function ()
 	return freakdev.event.EventManager.instance;
 };
 
-freakdev.event.EventManager.prototype.addEventListeners = function (er)
+freakdev.event.EventManager.prototype.addEventListener = function (e, cb, s)
 {
+	var eName = e instanceof freakdev.event.Event ? e.getName() : e;
 	
+	if (null == this._registeredEvents[eName])
+		this._registeredEvents[eName] = [];
+
+	if (null == this._registeredEvents[eName][s.getConstId()])
+		this._registeredEvents[eName][s.getConstId()] = [];
+	
+	this._registeredEvents[eName][s.getConstId()].push(cb);
+};
+
+freakdev.event.EventManager.prototype.removeEventListener = function (e, s, cb)
+{
+	var eName = e instanceof freakdev.event.Event ? e.getName() : e;
+	
+	if (null == this._registeredEvents[eName])
+		return;
+
+	if (null == this._registeredEvents[eName][s.getConstId()])
+		return;
+	
+	var cb = this._registeredEvents[eName][s.getConstId()];
+	if (undefined != cb)
+		delete(this._registeredEvents[eName][s.getConstId()][this._registeredEvents[eName][s.getConstId()].indexOf(cb)]);
+	else
+		delete(this._registeredEvents[eName][s.getConstId()][this._registeredEvents[eName][s.getConstId()]]);
 };
 
 freakdev.event.EventManager.prototype.domEventFactory = function (domEvent, canvas)
@@ -64,12 +90,18 @@ freakdev.event.EventManager.prototype.domEventFactory = function (domEvent, canv
 	}
 };
 
-freakdev.event.EventManager.prototype.fireEvent = function (event)
+freakdev.event.EventManager.prototype.fireEvent = function (event, s)
 {
-	for (var i, er; er = this.eventReceiver[i]; i++) {
-		if (!er.propagateEvent(event))
-			return false;
-	}
+	var eName = event instanceof freakdev.event.Event ? event.getName() : event;	
 	
-	return true;	
+	if (this._registeredEvents[eName] && this._registeredEvents[eName][s.getConstId()]) {
+		var callbacks = this._registeredEvents[eName][s.getConstId()]; 
+		for (var i=0, len=callbacks.length; i<len; i++) {
+			var cb = callbacks[i];
+			cb(event);
+			/*if (!event.canPropagate()) {
+				break;
+			}*/
+		}
+	}	
 };

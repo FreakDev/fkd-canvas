@@ -1,9 +1,6 @@
 Fkd.createNamespace('freakdev.canvas.scene');
 
-freakdev.canvas.scene.Object = function ()
-{
-	this.init.apply(this, arguments);
-};
+freakdev.canvas.scene.Object = Fkd.extend(freakdev.event.EventHandler);
 
 /**
  * constructor
@@ -19,6 +16,7 @@ freakdev.canvas.scene.Object.prototype.init = function(x, y, width, height)
 	 * @type String
 	 */
 	this.id = freakdev.utils.Uuid();
+	this._constId = freakdev.utils.Uuid();
 	
 	/**
 	 * img tag used to make rendering to canvas easier and faster
@@ -179,6 +177,35 @@ freakdev.canvas.scene.Object.prototype.getId = function ()
 	return this.id;
 };
 
+freakdev.canvas.scene.Object.prototype._prepareTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.updateContext('globalAlpha', this.opacity);
+		
+		target.translateToObjectCenter(this);
+		
+		tmpX = this.getX(); tmpY = this.getY();
+		this.setX(- (parseInt((this.getWidth() / 2))));
+		this.setY(- (parseInt((this.getHeight() / 2))));
+
+		target.rotate(this.rotation);
+		
+		target.scale(this.getScaleX(), this.getScaleY());
+	}	
+};
+
+freakdev.canvas.scene.Object.prototype._restoreTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.restore(4);
+		this.setX(tmpX);
+		this.setY(tmpY);
+		
+	}	
+};
+
 /**
  * render if needed and print the content of the object to the given target
  * this méthod is called by the object container during the rendering process
@@ -192,33 +219,16 @@ freakdev.canvas.scene.Object.prototype.renderTo = function (target)
 	if (this.isVisible()) {
 		if (this.isRenderNeeded())
 			this.render();
-	
-		var ctx = target.getContext();
+			
+		this.fireEvent('beforeRenderTo', this);
 		
-		if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
-			
-			target.updateContext('globalAlpha', this.opacity);
-			
-			target.translateToObjectCenter(this);
-			
-			tmpX = this.getX(); tmpY = this.getY();
-			this.setX(- (parseInt((this.getWidth() / 2))));
-			this.setY(- (parseInt((this.getHeight() / 2))));
-
-			target.rotate(this.rotation);
-			
-			target.scale(this.getScaleX(), this.getScaleY());
-		}
+		this._prepareTarget(target);
 		
 		this._drawToTarget(target);
 		
-		if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
-			
-			target.restore(4);
-			this.setX(tmpX);
-			this.setY(tmpY);
-			
-		}
+		this._restoreTarget(target);
+		
+		this.fireEvent('afterRenderTo', this);
 	}
 };
 
@@ -229,7 +239,8 @@ freakdev.canvas.scene.Object.prototype.renderTo = function (target)
  */
 freakdev.canvas.scene.Object.prototype._drawToTarget = function (target)
 {
-	target.getContext().drawImage(this.getImgTag(), 0, 0, this._naturalWidth, this._naturalHeight, this.getX(), this.getY(), this.getWidth(), this.getHeight());	
+	if (this._naturalWidth > 0 && this._naturalHeight > 0)
+		target.getContext().drawImage(this.getImgTag(), 0, 0, this._naturalWidth, this._naturalHeight, this.getX(), this.getY(), this.getWidth(), this.getHeight());
 };
 
 /**
@@ -278,7 +289,7 @@ freakdev.canvas.scene.Object.prototype.isRendering = function ()
 	return this._isRendering;
 };
 
-freakdev.canvas.scene.Object.prototype.isEventHandled = function (eventName)
+freakdev.canvas.scene.Object.prototype.isDomEventHandled = function (eventName)
 {
 	if (this._eventListeners[eventName])
 		return true;
@@ -286,37 +297,42 @@ freakdev.canvas.scene.Object.prototype.isEventHandled = function (eventName)
 		return false;
 };
 
-freakdev.canvas.scene.Object.prototype.handleEvent = function (e)
+freakdev.canvas.scene.Object.prototype.handleDomEvent = function (e)
 {
 	if (!e.type)
 		throw Error('Invalid event');
 	
-	if (!this.isEventHandled(e.type))
-		return false;
+	if (!this.isDomEventHandled(e.type))
+		// continue propagation
+		return true;
 	
 	for (var j=0,len=this._eventListeners[e.type].length; j<len; j++) {
-		return Fkd.call_fn_array(this._eventListeners[e.type][j], [e]);
+		Fkd.call_fn_array(this._eventListeners[e.type][j], [e]);
+		if (false === e.canPropagate())
+			break;
 	}
-	return true;
+	return e.canPropagate();
 };
 
 freakdev.canvas.scene.Object.prototype.removeEventListeners = function (eventName, listener) 
 {
-	if (!this.isEventHandled(eventName))
+	if (!this.isDomEventHandled(eventName))
 		return
 		
 	if (listener) {
 		this._eventListeners[eventName].splice(indexof(listener, this._eventListeners[eventName]), 1);
 		if (0 == this._eventListeners[eventName].length)
-			this._eventListeners[eventName] = null;
+			delete(this._eventListeners[eventName]);
 	} else {
-		this._eventListeners[eventName] = null;
+		delete(this._eventListeners[eventName]);
 	}
 };
 
 freakdev.canvas.scene.Object.prototype.addEventListener = function (eventName, listener) 
 {
-	if (!this.isEventHandled(eventName))
+	var em = freakdev.event.EventManager.getInstance();
+	
+	if (!this.isDomEventHandled(eventName))
 		this._eventListeners[eventName] = [];		
 		
 	this._eventListeners[eventName].push(listener);
@@ -326,9 +342,9 @@ freakdev.canvas.scene.Object.prototype._shouldHandleMouseEvent = function (event
 {
 	var ctx = event.canvas.getContext();
 
-	if (0 != this.rotation) {
-		//ctx.save();
-	}
+//	if (0 != this.rotation) {
+//		//ctx.save();
+//	}
 	
 	ctx.beginPath();
 	ctx.moveTo(this.getX()					, this.getY());
@@ -342,8 +358,9 @@ freakdev.canvas.scene.Object.prototype._shouldHandleMouseEvent = function (event
 	//ctx.stroke();
 	
 	//debug(event);
+	var isPtInPath = ctx.isPointInPath(event.x, event.y);
 	
-	return ctx.isPointInPath(event.x, event.y);
+	return isPtInPath;
 };
 
 /** 

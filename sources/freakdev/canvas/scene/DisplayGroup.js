@@ -17,6 +17,8 @@ freakdev.canvas.scene.DisplayGroup.prototype.init = function(x, y, width, height
 	 */
 	this._atlas = [];
 	
+	this.targetCanvas = null;
+	
 	freakdev.canvas.scene.DisplayGroup.superClass.init.call(this, x, y, width, height);
 };
 
@@ -25,14 +27,18 @@ freakdev.canvas.scene.DisplayGroup.prototype.init = function(x, y, width, height
  * @param {freakdev.event.Event} e
  * @returns void
  */
-freakdev.canvas.scene.DisplayGroup.prototype.handleEvent = function (e)
+freakdev.canvas.scene.DisplayGroup.prototype.handleDomEvent = function (e)
 {
 	for (var i=(this._atlas.length - 1); i>=0; i--) {
 		var o = this._atlas[i];
-		o.handleEvent.call(o, e);
+		if (false == o.handleDomEvent.call(o, e)) 
+			break;
 	}	
 	
-	return freakdev.canvas.scene.DisplayGroup.superClass.handleEvent.call(this, e);
+	if (e.canPropagate())
+		return freakdev.canvas.scene.DisplayGroup.superClass.handleDomEvent.call(this, e);
+	else
+		return false;
 };
 
 freakdev.canvas.scene.DisplayGroup.prototype._drawToTarget = function (target) { 
@@ -75,8 +81,50 @@ freakdev.canvas.scene.DisplayGroup.prototype.render = function ()
 	for (var i=0,len=this._atlas.length; i<len; i++) {
 		var o = this._atlas[i];
 
-    	threadBroker.startThread({fn:o.render, scope:o}, [], {fn:this._renderThreadCallback, scope:this}, this.getId());
+    	threadBroker.startThread(Fkd.createDelegate(o.render, o), [], Fkd.createDelegate(this._renderThreadCallback, this), this.getId());
 	}
+};
+
+freakdev.canvas.scene.DisplayGroup.prototype._prepareTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.updateContext('globalAlpha', this.opacity);
+		
+		target.translateToObjectCenter(this);
+		
+		tmpX = this.getX(); tmpY = this.getY();
+		this.setX(- (parseInt((this.getWidth() / 2))));
+		this.setY(- (parseInt((this.getHeight() / 2))));
+
+		for (var i=0,len=this._atlas.length; i<len; i++) {
+			var o = this._atlas[i];
+			o.setX(o.getX() + this.getX());
+			o.setY(o.getY() + this.getY());
+		}
+		
+		target.rotate(this.rotation);
+		
+		target.scale(this.getScaleX(), this.getScaleY());
+	}	
+};
+
+freakdev.canvas.scene.DisplayGroup.prototype._restoreTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.restore(4);
+		
+		this.setX(tmpX);
+		this.setY(tmpY);
+		
+		for (var i=0,len=this._atlas.length; i<len; i++) {
+			var o = this._atlas[i];
+			o.setX(o.getX() + this.getX());
+			o.setY(o.getY() + this.getY());
+		}		
+		
+	}	
 };
 
 /**

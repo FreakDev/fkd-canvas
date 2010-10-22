@@ -76,7 +76,7 @@ freakdev.canvas.Canvas.prototype._initEvent = function ()
 {
 	var eventListener = Fkd.createDelegate(function (event) {
 		var e = freakdev.event.EventManager.getInstance().domEventFactory(event, this);
-		(Fkd.createDelegate(this.scene.handleEvent, this.scene))(e);
+		(Fkd.createDelegate(this.scene.handleDomEvent, this.scene))(e);
 	}, this);
 	
 	for (var i in freakdev.event.DOM_EVENTS) {
@@ -112,7 +112,7 @@ freakdev.canvas.Canvas.prototype.getCanvas = function (idAttr)
 
 /**
  * get the context from the canvas DOMNode object
- * @returns
+ * @returns void
  */
 freakdev.canvas.Canvas.prototype.getContext = function ()
 {
@@ -346,7 +346,7 @@ freakdev.canvas.Canvas.prototype.getFps = function ()
 
 /**
  * stop auto rendering (at regular interval)
- * @returns
+ * @returns void
  */
 freakdev.canvas.Canvas.prototype.stopAutoRender = function () 
 {

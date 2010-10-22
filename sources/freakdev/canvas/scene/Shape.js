@@ -1,23 +1,54 @@
 Fkd.createNamespace('freakdev.canvas.scene');
 
+/**
+ * Abstract Class
+ */
 freakdev.canvas.scene.Shape = Fkd.extend(freakdev.canvas.scene.Object);
 
-freakdev.canvas.scene.Shape.prototype.init = function(width, height, x, y)
+freakdev.canvas.scene.Shape.prototype.init = function()
 {
-	freakdev.canvas.scene.Shape.superClass.init.apply(this, arguments);
+	this._isMask = false;
 	
-	var data = [], i = 0;
-	for (var j=0; j<height; j++) {
-		for (var k=0; k<width; k++) {
-			data[i] = data[++i] = data[++i] = 0;
-			data[++i] = 255;
-			++i;
-		}		
-	}
-	this.pxMap.setData(data);
+	freakdev.canvas.scene.Shape.superClass.init.apply(this, arguments);
 };
 
-//freakdev.canvas.scene.Shape.prototype.renderTo = function(target)
-//{	
-//	target.putImageData(this.pxMap.data, 0, 0, this.width, this.height);
-//};
+freakdev.canvas.scene.Shape.prototype.renderTo = function (canvas) 
+{	
+	if (undefined != canvas)
+		this.targetCanvas = canvas;
+	
+	var ctx = this.targetCanvas.getContext('2d');
+	
+	if (!this.isMask()) {
+		freakdev.canvas.scene.Shape.superClass.renderTo.call(this, this.targetCanvas);
+	}
+	else {
+		ctx.beginPath();
+		this.draw();
+		ctx.closePath();
+		ctx.save();
+		ctx.clip();
+	}
+		
+};
+
+// abstract
+freakdev.canvas.scene.Shape.prototype.draw = function ()
+{
+	throw new Error('should be implemented by the children class');
+};
+
+freakdev.canvas.scene.Shape.prototype.isMask = function ()
+{
+	return this._isMask;
+};
+
+freakdev.canvas.scene.Shape.prototype.setAsMask = function ()
+{
+	this._isMask = true;
+	var em = freakdev.event.EventManager.getInstance();
+	this._container.attachEvent('afterRenderTo', Fkd.createDelegate(function () {
+		this.targetCanvas.restore();
+	}, this));
+	
+};

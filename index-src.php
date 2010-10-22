@@ -1,16 +1,16 @@
 <?php
 include ('builder.php');
 ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!DOCTYPE html>
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <title></title>
-<!--<script type="text/javascript" src="freakdev.js"></script>-->
-<script type="text/javascript" src="fkdCanvas-build.js"></script>
+<script type="text/javascript" src="freakdev.js"></script>
+<!--<script type="text/javascript" src="fkdCanvas-build.js"></script>-->
 <script type="text/javascript">
 
-var waffleImg, marseilleImg, myGroup;
+var waffleImg, marseilleImg, myGroup, layer, path, bgCanvas;
 
 var trackActive = false;
 
@@ -21,6 +21,8 @@ var trackMouse = function (e) {
             if (this._shouldHandleMouseEvent(e)) {
             	trackActive = true;
             	this.setAnchorPoint(e.x - this.getX(), e.y - this.getY());
+
+            	return e.stopPropagation();
             }
             break;
         case freakdev.event.MOUSE_UP:
@@ -77,7 +79,8 @@ var mouseRotate = function (e) {
             	rotateActive = true;
                 this.setAnchorPoint(e.x - this.getX(), e.y - this.getY());
 
-                initAngle  = this.getRotation() * Math.PI / 180 + calcAngle(e.x, e.y);                
+                initAngle  = this.getRotation() * Math.PI / 180 + calcAngle(e.x, e.y);
+                return e.stopPropagation();                
             }
             break;
         case freakdev.event.MOUSE_UP:
@@ -93,6 +96,32 @@ var mouseRotate = function (e) {
             break;
     }
     
+};
+
+
+var currentPath = null;
+var drawActive = false;
+
+var drawMouse = function (e) {
+
+    switch (e.type) {
+        case freakdev.event.MOUSE_DOWN:
+            currentPath = new freakdev.canvas.scene.Path();
+            currentPath.push(new freakdev.math.Point(e.x, e.y));
+            this.push(currentPath);
+            drawActive = true;
+            break;
+        case freakdev.event.MOUSE_UP:
+        case freakdev.event.MOUSE_OUT:
+        	drawActive = false;
+        	//currentPath = null;
+            break;
+        case freakdev.event.MOUSE_MOVE:
+            if (drawActive) {
+            	currentPath.push(new freakdev.math.Point(e.x, e.y));
+            }
+            break;
+    }
 };
 
 
@@ -117,7 +146,7 @@ window.onload = function () {
 	
     //freakdev.utils.Debug.setDebugPanel('poorman-console');
 	
-	var bgCanvas = new freakdev.canvas.Canvas();
+	bgCanvas = new freakdev.canvas.Canvas();
 	bgCanvas.getCanvas().id = 'fkdcanvas'; 
 
     bgCanvas.setDomPlaceholder('canvas-div');
@@ -129,6 +158,17 @@ window.onload = function () {
     marseilleImg = new freakdev.canvas.scene.Image('marseille', 30, 10);
     bgCanvas.scene.push(marseilleImg);
 
+    
+    layer = new freakdev.canvas.scene.DisplayGroup(0, 0, 700, 500);
+    layer.setId('layer');
+    bgCanvas.scene.push(layer);
+    
+    layer.addEventListener(freakdev.event.MOUSE_DOWN, Fkd.createDelegate(drawMouse, layer));
+    layer.addEventListener(freakdev.event.MOUSE_MOVE, Fkd.createDelegate(drawMouse, layer));
+    layer.addEventListener(freakdev.event.MOUSE_UP, Fkd.createDelegate(drawMouse, layer));
+    layer.addEventListener(freakdev.event.MOUSE_OUT, Fkd.createDelegate(drawMouse, layer)); 
+
+    
     myGroup = new freakdev.canvas.scene.DisplayGroup(0, 0, 700, 500);
     bgCanvas.scene.push(myGroup);
 
@@ -149,7 +189,7 @@ window.onload = function () {
     coffeeImg.addEventListener(freakdev.event.MOUSE_MOVE, Fkd.createDelegate(mouseRotate, coffeeImg));
     coffeeImg.addEventListener(freakdev.event.MOUSE_UP, Fkd.createDelegate(mouseRotate, coffeeImg));  
     
-    myGroup.push(coffeeImg);
+    myGroup.push(coffeeImg); 
     
 };
 </script>
@@ -222,7 +262,7 @@ window.onload = function () {
                         <option value="0" selected="selected">0°</option>
                         <option value="30">30°</option>
                         <option value="45">45°</option>
-                        <option value="90°">90°</option>
+                        <option value="90">90°</option>
                         <option value="130">130°</option>
                     </select>
                     <div class="code"><pre>  waffleImg.setRotation(value)</pre></div>
@@ -246,28 +286,47 @@ window.onload = function () {
                     <input type="checkbox" checked="checked"" onchange="myGroup.setVisible((this.checked ? true : false))" />
                     <div class="code"><pre>  myGroup.setVisible(value)</pre></div>
                 </div>
+<!--                <div>-->
+<!--                    Rotate a group of element-->
+<!--                    <select onchange="myGroup.setRotation(this.value)">-->
+<!--                        <option value="-30">30° (anticlockwise)</option>-->
+<!--                        <option value="0" selected="selected">0°</option>-->
+<!--                        <option value="30">30°</option>-->
+<!--                        <option value="45">45°</option>-->
+<!--                        <option value="90">90°</option>-->
+<!--                        <option value="130">130°</option>-->
+<!--                    </select>-->
+<!--                    <div class="code"><pre>  waffleImg.setRotation(value)</pre></div>-->
+<!--                </div>-->
             </div>
         </div>
         <div>
             <h2 id="step-4">Step 4 - What about events handler</h2>
-            <div id="div-step-4">    
+            <div id="div-step-4">
+                Mainly used DOM event are available, and you can attach listener to a any object inside your scene
                 <div class="code"><pre>
+  // drag'n'drop
   waffleImg.addEventListener(freakdev.event.MOUSE_DOWN, waffleHandler);
   waffleImg.addEventListener(freakdev.event.MOUSE_MOVE, waffleHandler);
   waffleImg.addEventListener(freakdev.event.MOUSE_UP, waffleHandler);
 
+  // rotation with the mouse
   coffeeImg.addEventListener(freakdev.event.MOUSE_DOWN, coffeeHandler);
   coffeeImg.addEventListener(freakdev.event.MOUSE_MOVE, coffeeHandler);
   coffeeImg.addEventListener(freakdev.event.MOUSE_UP, coffeeHandler);
                 </pre></div>
+  <!--input type="button" onclick="currentPath.setAsMask();" value="set as mask" /-->
             </div>
         </div>
         <div>
-            <h2>Step 5 - Enjoy !</h2>    
+            <h2>Step 5 - Enjoy !</h2>
             Download latest release (alpha) :<br /> 
             - Minified (20kb) => <a href="fkdCanvas-build.js">fkdCanvas-build.js</a><br />
             - Checkout on Google Code => <a href="http://code.google.com/p/fkd-canvas/">http://code.google.com/p/fkd-canvas/</a><br />
             - Fork on GitHub => <a href="http://github.com/FreakDev/fkd-canvas">http://github.com/FreakDev/fkd-canvas</a><br />
+            <br />
+            <br />
+            By the way, you may want to save your master piece => <a href="javascript:document.location.href=bgCanvas.getCanvas().toDataURL().replace('image/png', 'image/octet-stream');">save</a>
         </div>    
         <div id="poorman-console"></div>
     </div>

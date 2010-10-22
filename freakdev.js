@@ -1,4 +1,29 @@
-//version 0.1
+/*!
+ * fkdCanvas JavaScript Library v0.1
+ *
+ * Copyright 2010, Mathias DESLOGES
+ * All rights reserved.
+ * 
+ * Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+ * 
+ *   - Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+ *   - Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer
+ *     in the documentation and/or other materials provided with the distribution. 
+ *   - Neither the name of the <ORGANIZATION> nor the names of its contributors may be used to 
+ *     endorse or promote products derived from this software without specific prior written permission. 
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE 
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Includes Math.uuid.js
+ * http://www.broofa.com/blog/?p=151
+ * Copyright (c) 2008, Robert Kieffer
+ * Released under Dual licensed under the MIT and GPL licenses.
+ *
+ */
 (function () {
 	
 
@@ -175,10 +200,23 @@ freakdev.utils.Uuid = (function() {
 // shorthand
 var generateUuid = freakdev.utils.Uuid;
 
+Fkd.createNamespace('freakdev.math');
+
+freakdev.math.Point = function ()
+{
+	this.init.apply(this, arguments);
+};
+
+freakdev.math.Point.prototype.init = function (x, y)
+{
+	this.x = x;
+	this.y = y;
+}
+
 Fkd.createNamespace('freakdev.event');
 
 freakdev.event.CLICK = 'click';
-freakdev.eventDBLCLICK = 'dblclick';
+freakdev.event.DBLCLICK = 'dblclick';
 
 freakdev.event.MOUSE_DOWN = 'mousedown';
 freakdev.event.MOUSE_MOVE = 'mousemove';
@@ -200,9 +238,9 @@ freakdev.event.DRAG_START = 'dragstart';
 freakdev.event.DROP = 'drop';
 
 freakdev.event.DOM_EVENTS = ['mousedown', 'mousemove', 'mouseout', 'mouseover', 
-                             'mouseup', 'mousewheel', 'keydown', 'keypress', 
-                             'keyup', 'drag', 'dragend', 'dragenter', 'dragleave', 
-                             'dragover','dragstart', 'drop'];
+                 'mouseup', 'mousewheel', 'keydown', 'keypress', 
+                 'keyup', 'drag', 'dragend', 'dragenter', 'dragleave', 
+                 'dragover','dragstart', 'drop'];
 
 freakdev.event.EventManager = function () 
 {
@@ -212,6 +250,7 @@ freakdev.event.EventManager = function ()
 freakdev.event.EventManager.prototype.init = function ()
 {
 	this._eventListeners = [];
+	this._registeredEvents = [];
 };
 
 freakdev.event.EventManager.instance = null;
@@ -225,9 +264,34 @@ freakdev.event.EventManager.getInstance = function ()
 	return freakdev.event.EventManager.instance;
 };
 
-freakdev.event.EventManager.prototype.addEventListeners = function (er)
+freakdev.event.EventManager.prototype.addEventListener = function (e, cb, s)
 {
+	var eName = e instanceof freakdev.event.Event ? e.getName() : e;
 	
+	if (null == this._registeredEvents[eName])
+		this._registeredEvents[eName] = [];
+
+	if (null == this._registeredEvents[eName][s.getConstId()])
+		this._registeredEvents[eName][s.getConstId()] = [];
+	
+	this._registeredEvents[eName][s.getConstId()].push(cb);
+};
+
+freakdev.event.EventManager.prototype.removeEventListener = function (e, s, cb)
+{
+	var eName = e instanceof freakdev.event.Event ? e.getName() : e;
+	
+	if (null == this._registeredEvents[eName])
+		return;
+
+	if (null == this._registeredEvents[eName][s.getConstId()])
+		return;
+	
+	var cb = this._registeredEvents[eName][s.getConstId()];
+	if (undefined != cb)
+		delete(this._registeredEvents[eName][s.getConstId()][this._registeredEvents[eName][s.getConstId()].indexOf(cb)]);
+	else
+		delete(this._registeredEvents[eName][s.getConstId()][this._registeredEvents[eName][s.getConstId()]]);
 };
 
 freakdev.event.EventManager.prototype.domEventFactory = function (domEvent, canvas)
@@ -241,14 +305,20 @@ freakdev.event.EventManager.prototype.domEventFactory = function (domEvent, canv
 	}
 };
 
-freakdev.event.EventManager.prototype.fireEvent = function (event)
+freakdev.event.EventManager.prototype.fireEvent = function (event, s)
 {
-	for (var i, er; er = this.eventReceiver[i]; i++) {
-		if (!er.propagateEvent(event))
-			return false;
-	}
+	var eName = event instanceof freakdev.event.Event ? event.getName() : event;	
 	
-	return true;	
+	if (this._registeredEvents[eName] && this._registeredEvents[eName][s.getConstId()]) {
+		var callbacks = this._registeredEvents[eName][s.getConstId()]; 
+		for (var i=0, len=callbacks.length; i<len; i++) {
+			var cb = callbacks[i];
+			cb(event);
+			/*if (!event.canPropagate()) {
+				break;
+			}*/
+		}
+	}	
 };
 
 
@@ -259,24 +329,43 @@ freakdev.event.Event = function ()
 	this.init.apply(this, arguments);
 };
 
-freakdev.event.Event.prototype.init = function ()
+freakdev.event.Event.prototype.init = function (name)
+{	
+	this._name = name;
+	this._allowPropagation = true;
+};
+
+freakdev.event.Event.prototype.getName = function () 
 {
-	
+	return this._name;
+};
+
+freakdev.event.Event.prototype.stopPropagation = function () 
+{
+	this._allowPropagation = false;
+	return false;
+};
+
+freakdev.event.Event.prototype.canPropagate = function () 
+{
+	return this._allowPropagation;
 };
 
 Fkd.createNamespace('freakdev.event');
 
 freakdev.event.MouseEvent = Fkd.extend(freakdev.event.Event);
 
-freakdev.event.MouseEvent.LEFT_BUTTON;
-freakdev.event.MouseEvent.RIGHT_BUTTON;
+freakdev.event.MouseEvent.LEFT_BUTTON = 'lb';
+freakdev.event.MouseEvent.RIGHT_BUTTON = 'rb';
 
 freakdev.event.MouseEvent.prototype.init = function (domMouseEvent, canvas)
 {
+	freakdev.event.MouseEvent.superClass.init.call(this, domMouseEvent.type);
+	
 	this.canvas = canvas || domMouseEvent.target;
 	this.type = domMouseEvent.type;
 	
-	this.button = (1 == domMouseEvent.type 
+	this.button = (1 == domMouseEvent.button 
 					? freakdev.event.MouseEvent.LEFT_BUTTON 
 					: freakdev.event.MouseEvent.RIGHT_BUTTON);
 
@@ -287,19 +376,59 @@ freakdev.event.MouseEvent.prototype.init = function (domMouseEvent, canvas)
 	
 };
 
+Fkd.createNamespace('freakdev.event');
+
+freakdev.event.EventHandler = function ()
+{
+	this.init.apply(this, arguments);
+};
+
+freakdev.event.EventHandler.prototype.init = function (name)
+{	
+	this._eventManager = freakdev.event.EventManager.getInstance();
+	this._constUID = generateUuid();
+};
+
+freakdev.event.EventHandler.prototype.getConstId = function () 
+{
+	return this._constUID;
+};
+
+freakdev.event.EventHandler.prototype.attachEvent = function(eventName, callback)
+{
+	this._eventManager.addEventListener(eventName, callback, this);
+};
+
+freakdev.event.EventHandler.prototype.detachEvent = function(eventName, callback)
+{
+	this._eventManager.addEventListener(eventName, this, callback);
+};
+
+freakdev.event.EventHandler.prototype.fireEvent = function(event, params)
+{
+	this._eventManager.fireEvent(event, this);
+};
+
+freakdev.event.EventHandler.prototype.fireEventAsync = function(event, params)
+{
+	var threadBroker = freakdev.thread.Broker.getInstance();
+	
+	threadBroker.startThread(this._eventManager.fireEvent, [event, this]);
+};
+
 Fkd.createNamespace('freakdev.canvas.image');
 
 freakdev.canvas.image.Pixel = function (comp1, comp2, comp3, comp4, mode)
 {
 	
-	this.red;
-	this.green;
-	this.blue;
-	this.hue;
-	this.saturation;
-	this.luminosity;
+	this.red = 0;
+	this.green = 0;
+	this.blue = 0;
+	this.hue = 0;
+	this.saturation = 0;
+	this.luminosity = 0;
 	
-	this.alpha;
+	this.alpha = 0;
 	
 	if (undefined == mode || 'rgb' == mode) {
 		this.red   = comp1;
@@ -500,7 +629,7 @@ freakdev.canvas.Canvas.prototype._initEvent = function ()
 {
 	var eventListener = Fkd.createDelegate(function (event) {
 		var e = freakdev.event.EventManager.getInstance().domEventFactory(event, this);
-		(Fkd.createDelegate(this.scene.handleEvent, this.scene))(e);
+		(Fkd.createDelegate(this.scene.handleDomEvent, this.scene))(e);
 	}, this);
 	
 	for (var i in freakdev.event.DOM_EVENTS) {
@@ -536,7 +665,7 @@ freakdev.canvas.Canvas.prototype.getCanvas = function (idAttr)
 
 /**
  * get the context from the canvas DOMNode object
- * @returns
+ * @returns void
  */
 freakdev.canvas.Canvas.prototype.getContext = function ()
 {
@@ -770,7 +899,7 @@ freakdev.canvas.Canvas.prototype.getFps = function ()
 
 /**
  * stop auto rendering (at regular interval)
- * @returns
+ * @returns void
  */
 freakdev.canvas.Canvas.prototype.stopAutoRender = function () 
 {
@@ -782,10 +911,7 @@ freakdev.canvas.Canvas.prototype.stopAutoRender = function ()
 
 Fkd.createNamespace('freakdev.canvas.scene');
 
-freakdev.canvas.scene.Object = function ()
-{
-	this.init.apply(this, arguments);
-};
+freakdev.canvas.scene.Object = Fkd.extend(freakdev.event.EventHandler);
 
 /**
  * constructor
@@ -801,6 +927,7 @@ freakdev.canvas.scene.Object.prototype.init = function(x, y, width, height)
 	 * @type String
 	 */
 	this.id = freakdev.utils.Uuid();
+	this._constId = freakdev.utils.Uuid();
 	
 	/**
 	 * img tag used to make rendering to canvas easier and faster
@@ -961,6 +1088,35 @@ freakdev.canvas.scene.Object.prototype.getId = function ()
 	return this.id;
 };
 
+freakdev.canvas.scene.Object.prototype._prepareTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.updateContext('globalAlpha', this.opacity);
+		
+		target.translateToObjectCenter(this);
+		
+		tmpX = this.getX(); tmpY = this.getY();
+		this.setX(- (parseInt((this.getWidth() / 2))));
+		this.setY(- (parseInt((this.getHeight() / 2))));
+
+		target.rotate(this.rotation);
+		
+		target.scale(this.getScaleX(), this.getScaleY());
+	}	
+};
+
+freakdev.canvas.scene.Object.prototype._restoreTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.restore(4);
+		this.setX(tmpX);
+		this.setY(tmpY);
+		
+	}	
+};
+
 /**
  * render if needed and print the content of the object to the given target
  * this méthod is called by the object container during the rendering process
@@ -974,33 +1130,16 @@ freakdev.canvas.scene.Object.prototype.renderTo = function (target)
 	if (this.isVisible()) {
 		if (this.isRenderNeeded())
 			this.render();
-	
-		var ctx = target.getContext();
+			
+		this.fireEvent('beforeRenderTo', this);
 		
-		if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
-			
-			target.updateContext('globalAlpha', this.opacity);
-			
-			target.translateToObjectCenter(this);
-			
-			tmpX = this.getX(); tmpY = this.getY();
-			this.setX(- (parseInt((this.getWidth() / 2))));
-			this.setY(- (parseInt((this.getHeight() / 2))));
-
-			target.rotate(this.rotation);
-			
-			target.scale(this.getScaleX(), this.getScaleY());
-		}
+		this._prepareTarget(target);
 		
 		this._drawToTarget(target);
 		
-		if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
-			
-			target.restore(4);
-			this.setX(tmpX);
-			this.setY(tmpY);
-			
-		}
+		this._restoreTarget(target);
+		
+		this.fireEvent('afterRenderTo', this);
 	}
 };
 
@@ -1011,7 +1150,8 @@ freakdev.canvas.scene.Object.prototype.renderTo = function (target)
  */
 freakdev.canvas.scene.Object.prototype._drawToTarget = function (target)
 {
-	target.getContext().drawImage(this.getImgTag(), 0, 0, this._naturalWidth, this._naturalHeight, this.getX(), this.getY(), this.getWidth(), this.getHeight());	
+	if (this._naturalWidth > 0 && this._naturalHeight > 0)
+		target.getContext().drawImage(this.getImgTag(), 0, 0, this._naturalWidth, this._naturalHeight, this.getX(), this.getY(), this.getWidth(), this.getHeight());
 };
 
 /**
@@ -1060,7 +1200,7 @@ freakdev.canvas.scene.Object.prototype.isRendering = function ()
 	return this._isRendering;
 };
 
-freakdev.canvas.scene.Object.prototype.isEventHandled = function (eventName)
+freakdev.canvas.scene.Object.prototype.isDomEventHandled = function (eventName)
 {
 	if (this._eventListeners[eventName])
 		return true;
@@ -1068,37 +1208,42 @@ freakdev.canvas.scene.Object.prototype.isEventHandled = function (eventName)
 		return false;
 };
 
-freakdev.canvas.scene.Object.prototype.handleEvent = function (e)
+freakdev.canvas.scene.Object.prototype.handleDomEvent = function (e)
 {
 	if (!e.type)
 		throw Error('Invalid event');
 	
-	if (!this.isEventHandled(e.type))
-		return false;
+	if (!this.isDomEventHandled(e.type))
+		// continue propagation
+		return true;
 	
 	for (var j=0,len=this._eventListeners[e.type].length; j<len; j++) {
-		return Fkd.call_fn_array(this._eventListeners[e.type][j], [e]);
+		Fkd.call_fn_array(this._eventListeners[e.type][j], [e]);
+		if (false === e.canPropagate())
+			break;
 	}
-	return true;
+	return e.canPropagate();
 };
 
 freakdev.canvas.scene.Object.prototype.removeEventListeners = function (eventName, listener) 
 {
-	if (!this.isEventHandled(eventName))
+	if (!this.isDomEventHandled(eventName))
 		return
 		
 	if (listener) {
 		this._eventListeners[eventName].splice(indexof(listener, this._eventListeners[eventName]), 1);
 		if (0 == this._eventListeners[eventName].length)
-			this._eventListeners[eventName] = null;
+			delete(this._eventListeners[eventName]);
 	} else {
-		this._eventListeners[eventName] = null;
+		delete(this._eventListeners[eventName]);
 	}
 };
 
 freakdev.canvas.scene.Object.prototype.addEventListener = function (eventName, listener) 
 {
-	if (!this.isEventHandled(eventName))
+	var em = freakdev.event.EventManager.getInstance();
+	
+	if (!this.isDomEventHandled(eventName))
 		this._eventListeners[eventName] = [];		
 		
 	this._eventListeners[eventName].push(listener);
@@ -1108,9 +1253,9 @@ freakdev.canvas.scene.Object.prototype._shouldHandleMouseEvent = function (event
 {
 	var ctx = event.canvas.getContext();
 
-	if (0 != this.rotation) {
-		//ctx.save();
-	}
+//	if (0 != this.rotation) {
+//		//ctx.save();
+//	}
 	
 	ctx.beginPath();
 	ctx.moveTo(this.getX()					, this.getY());
@@ -1124,8 +1269,9 @@ freakdev.canvas.scene.Object.prototype._shouldHandleMouseEvent = function (event
 	//ctx.stroke();
 	
 	//debug(event);
+	var isPtInPath = ctx.isPointInPath(event.x, event.y);
 	
-	return ctx.isPointInPath(event.x, event.y);
+	return isPtInPath;
 };
 
 /** 
@@ -1403,6 +1549,8 @@ freakdev.canvas.scene.DisplayGroup.prototype.init = function(x, y, width, height
 	 */
 	this._atlas = [];
 	
+	this.targetCanvas = null;
+	
 	freakdev.canvas.scene.DisplayGroup.superClass.init.call(this, x, y, width, height);
 };
 
@@ -1411,14 +1559,18 @@ freakdev.canvas.scene.DisplayGroup.prototype.init = function(x, y, width, height
  * @param {freakdev.event.Event} e
  * @returns void
  */
-freakdev.canvas.scene.DisplayGroup.prototype.handleEvent = function (e)
+freakdev.canvas.scene.DisplayGroup.prototype.handleDomEvent = function (e)
 {
 	for (var i=(this._atlas.length - 1); i>=0; i--) {
 		var o = this._atlas[i];
-		o.handleEvent.call(o, e);
+		if (false == o.handleDomEvent.call(o, e)) 
+			break;
 	}	
 	
-	return freakdev.canvas.scene.DisplayGroup.superClass.handleEvent.call(this, e);
+	if (e.canPropagate())
+		return freakdev.canvas.scene.DisplayGroup.superClass.handleDomEvent.call(this, e);
+	else
+		return false;
 };
 
 freakdev.canvas.scene.DisplayGroup.prototype._drawToTarget = function (target) { 
@@ -1461,8 +1613,50 @@ freakdev.canvas.scene.DisplayGroup.prototype.render = function ()
 	for (var i=0,len=this._atlas.length; i<len; i++) {
 		var o = this._atlas[i];
 
-    	threadBroker.startThread({fn:o.render, scope:o}, [], {fn:this._renderThreadCallback, scope:this}, this.getId());
+    	threadBroker.startThread(Fkd.createDelegate(o.render, o), [], Fkd.createDelegate(this._renderThreadCallback, this), this.getId());
 	}
+};
+
+freakdev.canvas.scene.DisplayGroup.prototype._prepareTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.updateContext('globalAlpha', this.opacity);
+		
+		target.translateToObjectCenter(this);
+		
+		tmpX = this.getX(); tmpY = this.getY();
+		this.setX(- (parseInt((this.getWidth() / 2))));
+		this.setY(- (parseInt((this.getHeight() / 2))));
+
+		for (var i=0,len=this._atlas.length; i<len; i++) {
+			var o = this._atlas[i];
+			o.setX(o.getX() + this.getX());
+			o.setY(o.getY() + this.getY());
+		}
+		
+		target.rotate(this.rotation);
+		
+		target.scale(this.getScaleX(), this.getScaleY());
+	}	
+};
+
+freakdev.canvas.scene.DisplayGroup.prototype._restoreTarget = function (target)
+{
+	if (this.opacity < 1 || 0 != this.rotation || 1 != this.getScaleX() || 1 != this.getScaleY()) {
+		
+		target.restore(4);
+		
+		this.setX(tmpX);
+		this.setY(tmpY);
+		
+		for (var i=0,len=this._atlas.length; i<len; i++) {
+			var o = this._atlas[i];
+			o.setX(o.getX() + this.getX());
+			o.setY(o.getY() + this.getY());
+		}		
+		
+	}	
 };
 
 /**
@@ -1554,9 +1748,9 @@ freakdev.canvas.scene.Scene = Fkd.extend(freakdev.canvas.scene.DisplayGroup);
  */
 freakdev.canvas.scene.Scene.prototype.init = function (target)
 {	
-	this.targetCanvas = target;
+	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, target.width, target.height);
 	
-	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, this.targetCanvas.getCanvas().width, this.targetCanvas.getCanvas().height);	
+	this.targetCanvas = target;
 };
 
 /**
@@ -1620,6 +1814,178 @@ freakdev.canvas.scene.Image.prototype.init = function(domId, x, y)
 };
 
 
+Fkd.createNamespace('freakdev.canvas.scene');
+
+/**
+ * Abstract Class
+ */
+freakdev.canvas.scene.Shape = Fkd.extend(freakdev.canvas.scene.Object);
+
+freakdev.canvas.scene.Shape.prototype.init = function()
+{
+	this._isMask = false;
+	
+	freakdev.canvas.scene.Shape.superClass.init.apply(this, arguments);
+};
+
+freakdev.canvas.scene.Shape.prototype.renderTo = function (canvas) 
+{	
+	if (undefined != canvas)
+		this.targetCanvas = canvas;
+	
+	var ctx = this.targetCanvas.getContext('2d');
+	
+	if (!this.isMask()) {
+		freakdev.canvas.scene.Shape.superClass.renderTo.call(this, this.targetCanvas);
+	}
+	else {
+		ctx.beginPath();
+		this.draw();
+		ctx.closePath();
+		ctx.save();
+		ctx.clip();
+	}
+		
+};
+
+// abstract
+freakdev.canvas.scene.Shape.prototype.draw = function ()
+{
+	throw new Error('should be implemented by the children class');
+};
+
+freakdev.canvas.scene.Shape.prototype.isMask = function ()
+{
+	return this._isMask;
+};
+
+freakdev.canvas.scene.Shape.prototype.setAsMask = function ()
+{
+	this._isMask = true;
+	var em = freakdev.event.EventManager.getInstance();
+	this._container.attachEvent('afterRenderTo', Fkd.createDelegate(function () {
+		this.targetCanvas.restore();
+	}, this));
+	
+};
+
+Fkd.createNamespace('freakdev.canvas.scene');
+
+freakdev.canvas.scene.Path = Fkd.extend(freakdev.canvas.scene.Shape);
+
+freakdev.canvas.scene.Path.prototype.init = function (points)
+{
+	freakdev.canvas.scene.Path.superClass.init.call(this);
+	
+	this._points = (undefined == points ? [] : points);
+	
+	/**
+	 * internal canvas used for rendergin purpose only
+	 * @type DOMCanvasNode
+	 */
+	this._canvas = document.createElement('canvas');
+	
+	/**
+	 * pointer to store which points have been already rendered
+	 * @type Integer
+	 */
+	this._renderIndex = 0;
+	
+	this.targetCanvas = null;
+	
+};
+
+freakdev.canvas.scene.Path.setTarget = function (canvas) 
+{
+	this.targetCanvas = canvas;
+};
+
+freakdev.canvas.scene.Path.prototype.beginPath = function ()
+{
+	this.targetCanvas.getContext('2d').beginPath();
+};
+
+freakdev.canvas.scene.Path.prototype.closePath = function ()
+{
+	this.targetCanvas.getContext('2d').closePath();
+};
+
+freakdev.canvas.scene.Path.prototype.draw = function (pts, ctx)
+{
+	if (undefined == ctx)
+		ctx = this.targetCanvas.getContext('2d');
+
+	if (undefined == pts)
+		pts = this._points;	
+	
+	if (pts.length) {
+		ctx.moveTo(pts[0].x, pts[0].y);
+		for (var i=1,len=pts.length; i<len; i++) {
+			ctx.lineTo(pts[i].x, pts[i].y);
+		}
+	}
+};
+
+freakdev.canvas.scene.Path.prototype.render = function ()
+{
+	if (this._isRendering)
+		return;
+	
+	this._isRendering = true;
+	this.setNeedToRender(false);
+	
+	var ctx = this._canvas.getContext('2d');
+		
+	var tmpPt = this._points.slice(this._renderIndex);
+	this._renderIndex = this._points.length > 2 ? this._points.length - 1 : 0;
+	
+	if (tmpPt.length) {
+		this.draw(tmpPt, ctx);
+		ctx.stroke();
+		
+		var img = new Image();
+		
+		img.onload = Fkd.createDelegate(function () {
+			this.setImgTag(img);
+			this._isRendering = false;
+		}, this);
+		img.src = this._canvas.toDataURL();
+	}
+	
+	delete(ctx); delete(tmpPt);
+	
+};
+
+freakdev.canvas.scene.Path.prototype.push = function (pt)
+{
+	this.setNeedToRender();
+	
+	this._points.push(pt);	
+};
+
+freakdev.canvas.scene.Path.prototype.setContainer = function (container)
+{
+	freakdev.canvas.scene.Path.superClass.setContainer.call(this, container);
+	
+	if (this._container) {
+		this.setWidth(this._container.getWidth());
+		this.setHeight(this._container.getHeight());
+		this.setX(this._container.getX());
+		this.setY(this._container.getY());
+	}		
+};
+
+freakdev.canvas.scene.Path.prototype.setWidth = function (w) 
+{
+	this._canvas.width = w;
+};
+
+freakdev.canvas.scene.Path.prototype.setHeight = function (h) 
+{
+	this._canvas.height = h;
+};
+
+
 Fkd.createNamespace('freakdev.thread');
 
 // design pattern singleton
@@ -1630,7 +1996,7 @@ freakdev.thread.Broker = function ()
     this.init.apply(this, arguments);
 };
 
-freakdev.thread.Broker.instance;
+freakdev.thread.Broker.instance = null;
 
 freakdev.thread.Broker.getInstance = function ()
 {
@@ -1642,33 +2008,10 @@ freakdev.thread.Broker.getInstance = function ()
 
 freakdev.thread.Broker.prototype.init = function () 
 {
-	this.maxSimul = 10;
 	this.nbStarted = 0;
 	this.threads = [];
 	this.threadStack = [];
-	this.timerID;
-	this.timerOn = false;
 };
-
-
-
-freakdev.thread.Broker.prototype.setMaxSimultaneous = function (value) 
-{
-	this.maxSimul = parseInt(value);
-};
-
-//freakdev.thread.Broker.prototype.startTimer = function ()
-//{
-//	this.timerOn = true;
-//	
-//	this.timerID = setInterval(Fkd.createDelegate(this.processStack, this), 15);
-//};
-//
-//freakdev.thread.Broker.prototype.stopTimer = function ()
-//{
-//	this.timerOn = false;
-//	clearInterval(this.timerID);
-//};
 
 freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, groupID)
 {
@@ -1694,12 +2037,9 @@ freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, g
 	}		
 	else
 		this.threads[groupID].push(t);
-	
-//	if (!this.timerOn)
-//		this.startTimer();
-	
+		
 	var script = document.createElement("script");
-	script.src  = "data:,";
+	script.src  = "data:text/javascript,";
 	script.onload = Fkd.createDelegate(function () {
 		document.body.removeChild(script);
 		this.processStack();
@@ -1710,15 +2050,8 @@ freakdev.thread.Broker.prototype.startThread = function (fn, params, callback, g
 
 freakdev.thread.Broker.prototype.processStack = function ()
 {
-	if (this.nbStarted >= this.maxSimul)
-		return;
 	
 	this.nbStarted++;
-	
-//	if (!this.threadStack[0]) {
-//		this.stopTimer();
-//		return;
-//	}
 	
 	var groupID = this.threadStack[0];	
 	
@@ -1728,16 +2061,6 @@ freakdev.thread.Broker.prototype.processStack = function ()
 	var t = this.threads[groupID].shift();
 	
 	var r = t.run();
-	
-	if (t.callback) {
-		if (t.callback.scope && t.callback.fn) {
-			scope = t.callback.scope;
-			fn = t.callback.fn;
-		} else {
-			scope = window;
-			fn = t.callback;
-		}		
-	}
 		
 	this.nbStarted--;
 	
@@ -1746,11 +2069,7 @@ freakdev.thread.Broker.prototype.processStack = function ()
 		this.threadStack.splice(0, 1);
 	}
 	
-//	if (0 == this.threadStack.length) {
-//		this.stopTimer();
-//	}
-	
-	fn.call(scope, r);
+	t.callback(r);
 };
 
 freakdev.thread.Broker.prototype.isFinished = function (groupID)
@@ -1775,18 +2094,9 @@ freakdev.thread.Thread.prototype.init = function (fn, params, callback)
 };
 
 freakdev.thread.Thread.prototype.run = function ()
-{
-	var fn, scope;
-	if (this.fn.scope && this.fn.fn) {
-		scope = this.fn.scope;
-		fn = this.fn.fn;
-	} else {
-		scope = window;
-		fn = this.fn;
-	}
-		
-	return fn.apply(scope, this.params);
-};
+{		
+	return this.fn (this.params);
+};	
 	
 })();
 

@@ -8,9 +8,9 @@ freakdev.canvas.scene.Scene = Fkd.extend(freakdev.canvas.scene.DisplayGroup);
  */
 freakdev.canvas.scene.Scene.prototype.init = function (target)
 {	
-	this.targetCanvas = target;
+	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, target.width, target.height);
 	
-	freakdev.canvas.scene.Scene.superClass.init.call(this, 0, 0, this.targetCanvas.getCanvas().width, this.targetCanvas.getCanvas().height);	
+	this.targetCanvas = target;
 };
 
 /**

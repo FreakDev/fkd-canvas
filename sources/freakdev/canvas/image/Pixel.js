@@ -3,14 +3,14 @@ Fkd.createNamespace('freakdev.canvas.image');
 freakdev.canvas.image.Pixel = function (comp1, comp2, comp3, comp4, mode)
 {
 	
-	this.red;
-	this.green;
-	this.blue;
-	this.hue;
-	this.saturation;
-	this.luminosity;
+	this.red = 0;
+	this.green = 0;
+	this.blue = 0;
+	this.hue = 0;
+	this.saturation = 0;
+	this.luminosity = 0;
 	
-	this.alpha;
+	this.alpha = 0;
 	
 	if (undefined == mode || 'rgb' == mode) {
 		this.red   = comp1;
